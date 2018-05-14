@@ -77,16 +77,19 @@ The library functions can be used from default.nix as follows:
 
 let
   overridez = import ./nix/haskell-overridez.nix;
-
   config = {
     packageOverrides = pkgs: {
       haskellPackages = pkgs.haskellPackages.override {
-        overrides = overridez.allIn ./nix
+        overrides = overridez.allIn ./nix;
       };
-    }
+    };
   };
-
   pkgs = import <nixpkgs> { inherit config; };
+
+in
+
+...
+
 ```
 
 ### Using the library functions in reflex-project-skeleton projects
