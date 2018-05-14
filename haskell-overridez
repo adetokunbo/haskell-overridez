@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+haskell-overridez() {
+    OPTIND=1
+    local working_dir=$(pwd)
+    local just_show_usage=0
+    local next_func=_save_cabal2nix
+    local opt
+    while getopts ":igdlho:" opt;
+    do
+        case $opt in
+            o)
+                working_dir=$OPTARG
+                ;;
+            h)
+                just_show_usage=1
+                ;;
+            d)
+                next_func=_delete_if_present
+                ;;
+            g)
+                next_func=_save_github_json
+                ;;
+            i)
+                next_func=_init_project
+                ;;
+            l)
+                next_func=_list_overrides
+                ;;
+            \?)
+                >&2 echo "Invalid option: -$OPTARG"
+                >&2 echo
+                >&2 _show_usage
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND-1))
+
+    for arg_func in _save_github_json _delete_if_present _save_cabal2nix
+    do
+        (( $# == 0 )) && [[ $next_func == $arg_func ]] && just_show_usage=1
+    done
+    (( $just_show_usage == 1 )) && _show_usage && return 0
+    _pushd_wd $working_dir
+    trap 'popd > /dev/null' INT TERM EXIT
+    $next_func "$@"
+}
+
+_pushd_wd() {
+    local working_dir=$1
+    [[ -d ${working_dir} ]] || mkdir -p ${working_dir}
+    pushd ${working_dir} > /dev/null
+}
+
+_show_usage() {
+    cat <<EOF
+haskell-overridez - manage nix overrides for haskell packages
+
+It adds a file to the nix subdirectory of a project containing either the
+'prefetch' json or the nix expression output of cabal2nix describing the
+target haskell package
+
+These files are used by the functions of the accompanying nix-expr library to
+create an override function that combines all the specified overrides.
+
+Usage:
+  haskell-overridez -i
+    # Initialize the project: this simply adds nix/haskell-overridez.nix
+    # to simplify the changes needed to default.nix
+
+  haskell-overridez [-g <username/project> [<revision>]]
+    # Adds the override as a json file describing the git repo of the package
+
+  haskell-overridez <any://uri/that/works/with/cabal2nix> [cabal2nix opts]
+    # Adds the override as nix expression for a haskell package
+    # Any additional args are passed to cabal2nix as flags
+
+  haskell-overridez [-d <project-name>]
+    # Delete the 'project-name' override file if present
+
+  haskell-overridez [-o <target-dir> ] ...
+    # Write output files under target-dir instead of the current working dir
+
+  haskell-overridez -l
+    # List all the saved overrides
+
+  haskell-overridez -h
+    # Show this help message
+
+Examples:
+
+  haskell-overridez https://github.com/tathougies/beam --subpath beam-core
+    # Install add the beam-core package
+
+  haskell-overridez -g reflex-frp/reflex-dom-contrib
+    # Install add the reflex-dom-contrib package
+
+EOF
+}
+
+_delete_if_present() {
+    local project=${1:-''}
+    [[ -z $project ]] && { >&2 _show_usage; return 1; }
+    local github_file="$(pwd)/nix/git-json/${project}.json"
+    local cabal2nix_file="$(pwd)/nix/nix-expr/${project}.nix"
+    [[ -f ${github_file} ]] && rm -v ${github_file}
+    [[ -f ${cabal2nix_file} ]] && rm -v ${cabal2nix_file}
+    return 0
+}
+
+_init_project() {
+    local out="$(pwd)/nix/haskell-overridez.nix"
+    [[ -f $out ]] && return 0;
+    local git_url="https://github.com/adetokunbo/haskell-overridez"
+    local init_tmp=$(mktemp -q)
+    trap "rm $init_tmp" INT TERM EXIT
+    nix-prefetch-git ${git_url} > ${init_tmp}
+    local git_rev=$(cat $init_tmp | grep 'rev' | sed -e 's/.*"rev": "\(.*\)".*/\1/')
+    local git_sha256=$(cat $init_tmp | grep 'sha256' | sed -e 's/.*"sha256": "\(.*\)".*/\1/')
+    _ensure_parent_dir $out
+    (cat <<EOF
+let
+  pkgs = import <nixpkgs> {};
+  overridez = pkgs.fetchgit {
+    url = "${git_url}";
+    rev = "${git_rev}";
+    sha256 = "${git_sha256}";
+  };
+in
+  import overridez { inherit pkgs; }
+EOF
+    ) > $out
+}
+
+_save_github_json() {
+    local project=${1:-''}
+    [[ -z $project ]] && { >&2 _show_usage; return 1; }
+    local revision=${2:-''}
+    local url="https://github.com/${project}.git"
+    local out="$(pwd)/nix/git-json/${project##*/}.json"
+    _ensure_parent_dir $out
+    _init_project
+    nix-prefetch-git $url $revision > $out && {
+        >&2 echo "Saved github json for ${project} to ${out}"
+    }
+}
+
+_save_cabal2nix() {
+    local pkg_uri=${1:-''}
+    shift
+    [[ -z $pkg_uri ]] && { >&2 _show_usage; return 1; }
+    echo "cmd is cabal2nix $pkg_uri $@"
+    local nix_expr_tmp=$(mktemp -q) && {
+        cabal2nix $pkg_uri "$@" > $nix_expr_tmp && {
+            local project=$(cat $nix_expr_tmp | grep 'pname' | sed -e 's/.*pname = "\(.*\)".*/\1/')
+            local out="$(pwd)/nix/nix-expr/${project}.nix"
+            _ensure_parent_dir $out
+            _init_project
+            cp $nix_expr_tmp $out
+            >&2 echo "Saved nix-expr for ${project} to ${out}"
+            rm $nix_expr_tmp
+        }
+    }
+}
+
+_list_overrides() {
+    [[ -d './nix/git-json' ]] && {
+        echo "Git JSON"
+        echo
+        ls -1 ./nix/git-json
+        echo
+    }
+    [[ -d './nix/nix-expr' ]] && {
+        echo "Nix exprs"
+        echo
+        ls -1 ./nix/nix-expr
+        echo
+    }
+    return 0
+}
+
+_ensure_parent_dir() {
+    local path=$1
+    mkdir -p $(dirname $path)
+}
+
+haskell-overridez "$@"
