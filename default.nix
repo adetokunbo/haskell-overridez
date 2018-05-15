@@ -1,9 +1,10 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ debug ? false, pkgs ? import <nixpkgs> {} }:
 with pkgs;
 let inherit (pkgs.lib) composeExtensions fold foldr listToAttrs mapAttrs';
     inherit (builtins) fromJSON match pathExists readFile readDir replaceStrings toPath trace;
     composeExtensionsList = fold composeExtensions (_: _: {});
     isDir = path: pathExists (toPath (toString (path + "/.")));
+    _trace = msg: result: if debug then (trace msg result) else result;
 in
 rec {
   haskell-overridez = stdenvNoCC.mkDerivation {
@@ -46,14 +47,14 @@ rec {
   nixExprIn = aDir: self: super:
     let
       mkOverride = f: self.callPackage (aDir + "/${f}") { };
-      toPackage = f: _: trace "found override (nix-expr): ${f}" rec {
+      toPackage = f: _: _trace "found override (nix-expr): ${f}" rec {
         name  = builtins.replaceStrings [ ".nix" ] [ "" ] f;
-        value = trace ("using override (nix-expr): ${name}") (mkOverride f);
+        value = _trace ("using override (nix-expr): ${name}") (mkOverride f);
       };
     in
       if isDir aDir
       then mapAttrs' toPackage (readDir (toPath aDir))
-      else trace ("no overrides (nix-expr): directory not found ${aDir}") {};
+      else _trace ("no overrides (nix-expr): directory not found ${aDir}") {};
 
   gitJsonIn = aDir: self: super:
     let
@@ -72,14 +73,14 @@ rec {
         let filePath = n: d + "/${n}.json";
             loadFuncs = [fetcher toFetchAttrs fromJSON readFile filePath];
             mkOverride = n: self.callCabal2nix n (applyFuncs loadFuncs n) {};
-            toPackage = file: _: trace "found override (git-json): ${file}" rec {
+            toPackage = file: _: _trace "found override (git-json): ${file}" rec {
               name  = replaceStrings [ ".json" ] [ "" ] file;
-              value = trace ("using override (git-json): ${name}") (mkOverride name);
+              value = _trace ("using override (git-json): ${name}") (mkOverride name);
             };
         in mapAttrs' toPackage (readDir d);
 
     in
       if isDir aDir
       then readDirOverrides fetchFromGitHub toGithubAttrs aDir
-      else trace ("no overrides (git-json): was not a dir ${aDir}") {};
+      else _trace ("no overrides (git-json): was not a dir ${aDir}") {};
 }
