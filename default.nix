@@ -2,6 +2,7 @@
 with pkgs;
 let inherit (pkgs.lib) composeExtensions fold foldr listToAttrs mapAttrs';
     inherit (builtins) fromJSON match pathExists readFile readDir replaceStrings toPath trace;
+
     composeExtensionsList = fold composeExtensions (_: _: {});
     isDir = path: pathExists (toPath (toString (path + "/.")));
     _trace = msg: result: if debug then (trace msg result) else result;
@@ -42,6 +43,7 @@ rec {
       composeExtensionsList [
         (nixExprIn (extDir "nix-expr"))
         (gitJsonIn (extDir "git-json"))
+        (optionsIn (extDir "options"))
       ];
 
   nixExprIn = aDir: self: super:
@@ -83,4 +85,40 @@ rec {
       if isDir aDir
       then readDirOverrides fetchFromGitHub toGithubAttrs aDir
       else _trace ("no overrides (git-json): was not a dir ${aDir}") {};
+
+  optionsIn = aDir: self: super:
+    let
+      inherit (builtins) attrValues filter intersectAttrs isList split;
+      inherit (pkgs.lib) mapAttrs;
+
+      supportedOptions = {
+        doJailbreak = pkgs.haskell.lib.doJailbreak;
+        dontCheck = pkgs.haskell.lib.dontCheck;
+        dontHaddock = pkgs.haskell.lib.dontHaddock;
+      };
+
+      mkOverrides = option: names: _: super:
+        let
+          f = supportedOptions.${option};
+          toPackage = name: _trace "found override (options): ${toString name}" {
+            inherit name;
+            value = _trace ("using override (options): ${toString name}") (f super.${name});
+          };
+        in
+          _trace "found option ${option} on pkgs ${toString names}"
+          listToAttrs (map toPackage names);
+
+      readOptionsOverrides = d:
+        let
+          nonEmptyNonList = x: (!(isList x)) && x != "";
+          availableOptions = intersectAttrs (readDir d) supportedOptions;
+          lines = f: filter nonEmptyNonList (split "\n" (readFile (d + "/${f}")));
+          namesPerOption = mapAttrs (opt: _: lines opt) availableOptions;
+          optionsOverrides = attrValues (mapAttrs mkOverrides namesPerOption);
+        in
+          (composeExtensionsList optionsOverrides) self super;
+    in
+      if isDir aDir
+      then readOptionsOverrides aDir
+      else _trace ("no overrides (options): was not a dir ${aDir}") {};
 }
