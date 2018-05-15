@@ -127,20 +127,15 @@ _delete_if_present() {
 _init_project() {
     local out="$(pwd)/nix/haskell-overridez.nix"
     [[ -f $out ]] && return 0;
-    local git_url="https://github.com/adetokunbo/haskell-overridez"
-    local init_tmp=$(mktemp -q)
-    trap "rm $init_tmp" INT TERM EXIT
-    nix-prefetch-git ${git_url} > ${init_tmp}
-    local git_rev=$(cat $init_tmp | grep 'rev' | sed -e 's/.*"rev": "\(.*\)".*/\1/')
-    local git_sha256=$(cat $init_tmp | grep 'sha256' | sed -e 's/.*"sha256": "\(.*\)".*/\1/')
+    local archive_url="https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz"
+    local the_hash=$(nix-prefetch-url --unpack ${archive_url})
     _ensure_parent_dir $out
     (cat <<EOF
 let
   pkgs = import <nixpkgs> {};
-  overridez = pkgs.fetchgit {
-    url = "${git_url}";
-    rev = "${git_rev}";
-    sha256 = "${git_sha256}";
+  overridez = fetchTarball {
+    url = "${archive_url}";
+    sha256 = "${the_hash}";
   };
 in
   import overridez { inherit pkgs; }
