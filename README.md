@@ -87,8 +87,7 @@ let
   pkgs = import <nixpkgs> { inherit config; };
 
 in
-
-...
+  {};
 
 ```
 
@@ -98,21 +97,21 @@ Some overrides can't be specified using __haskell-overridez__ and will need to s
 
 let
   overridez = import ./nix/haskell-overridez.nix;
-  myManualOverride = ...
-  myImportedOverrides = import /from/some/nix/file.nix
+  myManualOverride = self: super: {};
+  myImportedOverrides = import /from/some/nix/file.nix;
 
   config = {
     packageOverrides = pkgs: {
       haskellPackages = pkgs.haskellPackages.override {
-        overrides = overridez.combineAllIn ./nix [myManualOverride, myImportedOverrides];
+        overrides = overridez.combineAllIn ./nix [myManualOverride myImportedOverrides];
       };
     };
   };
   pkgs = import <nixpkgs> { inherit config; };
 
 in
+  {};
 
-...
 
 ```
 
