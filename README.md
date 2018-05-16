@@ -11,10 +11,6 @@ You can then install `haskell-overridez` using `nix-env`:
 
 ```bash
 
-nix-env --install -f https://git.io/vpHEF  # the git.io short URL for longer link below
-
-or
-
 nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz
 
 ```
