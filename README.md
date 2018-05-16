@@ -44,7 +44,7 @@ haskell-overridez - manage nix overrides for haskell packages
 
 ### Project Layout
 
-Given the example commands above, haskell-overridez creates a project with the following layout:
+Given the example commands above, `haskell-overridez` creates a project with the following layout:
 
 ```
 ├── default.nix
@@ -61,7 +61,7 @@ Given the example commands above, haskell-overridez creates a project with the f
 ```
 
  1. There is a `nix` subdirectory of the main project directory.
- 2. There is a haskell-overridez.nix file that contains the nix expression used to load the accompanying nix expression library.
+ 2. There is a `haskell-overridez.nix` file that contains the nix expression used to load the accompanying nix expression library.
  3. There are subdirectories (`nix-expr`, `git-json`) that contain the output from the tools.
  4. The accompanying library functions use the contents of the subdirectories to generate a nix expression that combines all the overrides into a single nix overlay.
 
@@ -87,7 +87,7 @@ in
 
 ```
 
-Some overrides can't be specified using __haskell-overridez__ and will need to specified in other ways.  The two sets can be combined using `combineAllIn` instead of `allIn`:
+Some overrides can't be specified using `haskell-overridez` and will need to be specified in other ways.  The two sets can be combined using `combineAllIn` instead of `allIn`:
 
 ```nix
 
