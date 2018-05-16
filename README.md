@@ -92,6 +92,30 @@ in
 
 ```
 
+Some overrides can't be specified using __haskell-overridez__ and will need to specified in other ways.  The two sets can be combined using `combineAllIn` instead of `allIn`:
+
+```nix
+
+let
+  overridez = import ./nix/haskell-overridez.nix;
+  myManualOverride = ...
+  myImportedOverrides = import /from/some/nix/file.nix
+
+  config = {
+    packageOverrides = pkgs: {
+      haskellPackages = pkgs.haskellPackages.override {
+        overrides = overridez.combineAllIn ./nix [myManualOverride, myImportedOverrides];
+      };
+    };
+  };
+  pkgs = import <nixpkgs> { inherit config; };
+
+in
+
+...
+
+```
+
 ### Using the library functions in reflex-project-skeleton projects
 
 Projects developed using the [Reflex Platform](https://github.com/reflex-frp/reflex-platform) can benefit from adopting the layout in
