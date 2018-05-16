@@ -197,7 +197,7 @@ _ensure_parent_dir() {
 }
 
 _maybe_add_options() {
-    [[ -z $HOZ_OPTS ]] && return 0
+    [[ -z ${HOZ_OPTS:-''} ]] && return 0
     local project=${1:-''}
     [[ -z $project ]] && return 0
     local hoz_opts_array=(${HOZ_OPTS//:/ })
