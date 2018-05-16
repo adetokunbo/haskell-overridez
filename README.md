@@ -96,7 +96,7 @@ in
 
 Projects developed using the [Reflex Platform](https://github.com/reflex-frp/reflex-platform) can benefit from adopting the layout in
 [reflex-project-skeleton](https://github.com/ElvishJerricco/reflex-project-skeleton).  This allows them to share
-haskell code between frontend and backend.  In these projects, `haskell-overridez` can be used follows:
+haskell code between frontend and backend.  In these projects, `haskell-overridez` can be used as follows:
 
 ```nix
 
