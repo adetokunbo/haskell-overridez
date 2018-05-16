@@ -47,7 +47,7 @@ rec {
     in
       composeExtensionsList allExtensions;
 
-  allIn = rootDir: combineAllIn rootDir []
+  allIn = rootDir: combineAllIn rootDir [];
 
   nixExprIn = aDir: self: super:
     let
