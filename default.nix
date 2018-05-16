@@ -36,15 +36,18 @@ rec {
     };
   };
 
-  allIn = rootDir:
+  combineAllIn = rootDir: otherOverrides:
     let
       extDir = d: (toString rootDir) + "/" + d;
-    in
-      composeExtensionsList [
+      allExtensions = [
         (nixExprIn (extDir "nix-expr"))
         (gitJsonIn (extDir "git-json"))
         (optionsIn (extDir "options"))
-      ];
+      ] ++ otherOverrides;
+    in
+      composeExtensionsList allExtensions;
+
+  allIn = rootDir: combineAllIn rootDir []
 
   nixExprIn = aDir: self: super:
     let

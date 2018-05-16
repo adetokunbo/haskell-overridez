@@ -11,11 +11,11 @@ You can then install `haskell-overridez` using `nix-env`:
 
 ```bash
 
-nix-env -i https://git.io/vpHEF  # the git.io short URL for longer link below
+nix-env --install -f https://git.io/vpHEF  # the git.io short URL for longer link below
 
 or
 
-nix-env -i https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz
+nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz
 
 ```
 
@@ -64,10 +64,10 @@ Given the example commands above, haskell-overridez creates a project with the f
 │   │   └── reflex-dom-contrib.json
 ```
 
- 1. There is a `nix` subdirectory of the main project directory
- 2. There is a haskell-overridez.nix file that contains the nix expression used to load the accompanying nix expression library
- 3. There are subdirectories (`nix-expr`, `git-json`) that contain the output from the tools
- 4. The accompanying library functions use the contents of the subdirectories to generate a nix expression that combines all the overloads
+ 1. There is a `nix` subdirectory of the main project directory.
+ 2. There is a haskell-overridez.nix file that contains the nix expression used to load the accompanying nix expression library.
+ 3. There are subdirectories (`nix-expr`, `git-json`) that contain the output from the tools.
+ 4. The accompanying library functions use the contents of the subdirectories to generate a nix expression that combines all the overrides into a single nix overlay.
 
 ### Using the library functions
 
@@ -87,8 +87,31 @@ let
   pkgs = import <nixpkgs> { inherit config; };
 
 in
+  {};
 
-...
+```
+
+Some overrides can't be specified using __haskell-overridez__ and will need to specified in other ways.  The two sets can be combined using `combineAllIn` instead of `allIn`:
+
+```nix
+
+let
+  overridez = import ./nix/haskell-overridez.nix;
+  myManualOverride = self: super: {};
+  myImportedOverrides = import /from/some/nix/file.nix;
+
+  config = {
+    packageOverrides = pkgs: {
+      haskellPackages = pkgs.haskellPackages.override {
+        overrides = overridez.combineAllIn ./nix [myManualOverride myImportedOverrides];
+      };
+    };
+  };
+  pkgs = import <nixpkgs> { inherit config; };
+
+in
+  {};
+
 
 ```
 
@@ -96,7 +119,7 @@ in
 
 Projects developed using the [Reflex Platform](https://github.com/reflex-frp/reflex-platform) can benefit from adopting the layout in
 [reflex-project-skeleton](https://github.com/ElvishJerricco/reflex-project-skeleton).  This allows them to share
-haskell code between frontend and backend.  In these projects, `haskell-overridez` can be used follows:
+haskell code between frontend and backend.  In these projects, `haskell-overridez` can be used as follows:
 
 ```nix
 
