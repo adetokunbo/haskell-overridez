@@ -48,6 +48,7 @@ haskell-overridez() {
     _pushd_wd $working_dir
     trap 'popd > /dev/null' INT TERM EXIT
     $next_func "$@"
+    return 0
 }
 
 _pushd_wd() {
@@ -163,6 +164,7 @@ _save_cabal2nix() {
     shift
     [[ -z $pkg_uri ]] && { >&2 _show_usage; return 1; }
     _echo "cmd is cabal2nix $pkg_uri $@"
+    [[ $pkg_uri =~ "cabal://" ]] && { _save_cabal2nix_cabal_uri $pkg_uri "$@"; return 0; }
     local nix_expr_tmp=$(mktemp -q)
     trap "rm $nix_expr_tmp" INT TERM EXIT
     cabal2nix $pkg_uri "$@" > $nix_expr_tmp
@@ -173,6 +175,44 @@ _save_cabal2nix() {
     cp $nix_expr_tmp $out
     _echo "saved nix-expr for ${project} to ${out}"
     _maybe_add_options $project
+}
+
+_save_cabal2nix_cabal_uri() {
+    local pkg_uri=${1:-''}
+    shift
+    [[ -z $HOZ_ALL_CABAL_HASHES:-'' ]] && return 1;
+    local full_id=${pkg_uri##cabal://}
+
+    # NOTE: search_path finds _a_ version if none is specified, but not the
+    # __latest__ version.  This is to keep the implementation simple.
+    local name=$(echo $full_id | sed -e 's/\(.*\)-[0123456789].*/\1/')
+    local version=$(echo $full_id | sed -e 's/.*-\([0123456789].*\)/\1/')
+    local search_path="/$name/$version/"
+    [[ $version == $name ]] && { version=''; search_path="/$name/"; }
+
+    _echo "searching for ${search_path} in the hackage db: ${HOZ_ALL_CABAL_HASHES}"
+    in_tar=$(tar -tzvf $HOZ_ALL_CABAL_HASHES \
+        | grep $search_path \
+        | grep '\.cabal' \
+        | sed -e 's/.*\(all-cabal-hashes.*cabal\)$/\1/' \
+        | tail -n 1)
+    [[ -z $in_tar ]] && { _echo "unknown cabal package: $pkg_uri"; return 1; }
+    _echo "found: $in_tar for $pkg_uri"
+
+    # Extract the cabal file and use that with cabal2nix
+    tar -xvf $HOZ_ALL_CABAL_HASHES $in_tar >> /dev/null
+    local unpacked_path="file://$(pwd)/${in_tar}"
+    local unpacked_root=$(pwd)/${in_tar%%/*}
+    export HOME=$unpacked_root
+    trap "rm -fR $unpacked_root" RETURN
+    [[ $version == '' ]] && {
+        local layer1=${in_tar#*/}
+        local layer2=${layer1#*/}
+        _echo "*warning* no version specified for ${name}; using ${layer2}"
+        _echo "*warning* ${layer2} may not be the most recent version"
+        _echo "*warning* specify ${name} with a version if this not OK"
+    }
+    _save_cabal2nix $unpacked_path "$@"
 }
 
 _list_overrides() {
