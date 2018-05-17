@@ -11,6 +11,8 @@ test() {
             # setup
             echo "test project: ${test_dir}"
             pushd $test_dir > /dev/null
+            _prepare_nix_dir
+            _add_current_project_to_nix
             ./setup_test.sh
 
             # test
@@ -26,6 +28,26 @@ test() {
             trap - INT TERM EXIT
         }
     done
+}
+
+_prepare_nix_dir() {
+    [[ -d nix ]] && rm -fR nix
+    mkdir -p nix
+    (cat <<EOF
+let
+  pkgs = import <nixpkgs> {};
+in
+  import (../../..) { inherit pkgs; }
+EOF
+    ) > "nix/haskell-overridez.nix"
+}
+
+_add_current_project_to_nix() {
+    cwd=$(pwd)
+    mkdir -p nix/nix-expr
+    local nix_file="nix/nix-expr/${cwd##*/}.nix"
+    cabal2nix . > $nix_file
+    sed -i'' -e 's|src = ./.|src = ../../.|' $nix_file
 }
 
 test
