@@ -1,0 +1,31 @@
+version: 2
+
+aliases: &build
+  environment:
+    BASH_ENV: "~/.nix-profile/etc/profile.d/nix.sh"
+
+  machine: true
+
+  parallelism: 2
+
+  steps:
+    - checkout
+
+    - run:
+        name: install nixpkgs
+        command: curl https://nixos.org/nix/install | sh
+
+    - run:
+        name: install test dependencies
+        command: ./fixtures/install_test_deps.sh
+
+    - run:
+        name: install haskell-overridez
+        command: nix-env -i -f . && nix-env -q
+
+    - run:
+        name: run the tests
+        command: ./test.sh
+
+jobs:
+  build: *build
