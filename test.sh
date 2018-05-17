@@ -2,12 +2,13 @@
 set -euo pipefail
 
 test() {
+    set -x
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     fixture_dir=$this_dir/fixtures
     for d in $(ls $fixture_dir)
     do
         local test_dir=${fixture_dir}/${d}
-        [[ -e $test_dir ]] || continue
+        [[ -d $test_dir ]] || continue
 
         pushd $test_dir > /dev/null
         # maybe skip
@@ -22,6 +23,7 @@ test() {
         }
         _test_one_project $test_dir
     done
+    set +x
 }
 
 _test_one_project() {
@@ -68,7 +70,7 @@ _add_current_project_to_nix() {
     mkdir -p nix/nix-expr
     local nix_file="nix/nix-expr/${cwd##*/}.nix"
     cabal2nix . > $nix_file
-    sed -i '' -e 's|src = ./.|src = ../../.|' $nix_file
+    sed -i'.bak' -e 's|src = ./.|src = ../../.|' $nix_file
 }
 
 test
