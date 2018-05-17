@@ -8,6 +8,7 @@ let inherit (pkgs.lib) composeExtensions fold foldr listToAttrs mapAttrs';
     _trace = msg: result: if debug then (trace msg result) else result;
 in
 rec {
+
   haskell-overridez = stdenvNoCC.mkDerivation {
     name = "haskell-overridez";
 
@@ -19,7 +20,8 @@ rec {
       install -vD ${./haskell-overridez} $out/bin/$name;
       wrapProgram $out/bin/$name \
         --prefix PATH : ${stdenv.lib.makeBinPath ([ cabal2nix gnugrep gnused nix-prefetch-scripts ])} \
-        --set HOME /homeless-shelter
+        --set HOME /homeless-shelter \
+        --set HOZ_ALL_CABAL_HASHES ${all-cabal-hashes}
     '';
 
     preferLocalBuild = true;
