@@ -9,5 +9,5 @@ let
   };
   pkgs = import <nixpkgs> { inherit config; };
 in
-  { yonbanme-no-purojekuto = pkgs.haskellPackages.yonbanme-no-purojekuto;
+  { rokubanme-no-purojekuto = pkgs.haskellPackages.rokubanme-no-purojekuto;
   }
