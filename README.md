@@ -1,6 +1,11 @@
-# haskell-overridez
+# haskell-overridez [![CircleCI](https://circleci.com/gh/adetokunbo/haskell-overridez.svg?style=svg)](https://circleci.com/gh/adetokunbo/haskell-overridez)
 
 __haskell-overridez__ is a script and library of nix functions that simplify the use of overrides while developing haskell projects with [nixpkgs](https://github.com/NixOS/nixpkgs).
+
+## Inspiration
+
+__haskell-overridez__ is inspired by the section on [Advanced Dependency Management](https://github.com/Gabriel439/haskell-nix/tree/master/project4) in [haskell-nix](https://github.com/Gabriel439/haskell-nix).
+The idea is to turn the recommendations there into a tool that is itself installed into the nix environment.
 
 
 ## Installation
@@ -152,10 +157,6 @@ Contributions are welcome! Please raise an [issue](https://github.com/adetokunbo
   2. Iterate on its features to make more useful (.. going forward)
   3. (??) Merge it into [nixpkgs](https://github.com/NixOS/nixpkgs) (later, if people think that's a good idea)
 
-## Credit
-
-__haskell-overridez__ is inspired by the section on [Advanced Dependency](https://github.com/Gabriel439/haskell-nix/tree/master/project4) in [haskell-nix](https://github.com/Gabriel439/haskell-nix).
-The idea is to turn the recommendations there into a tool that is hosted in the nix store.
 
 ## License
 BSD-3 clause
