@@ -4,6 +4,16 @@ set -euo pipefail
 KNOWN_OPTS="doJailbreak dontCheck dontHaddock"
 
 haskell-overridez() {
+    local first_arg=${1:-''}
+    [[ ${first_arg} == "fetch" ]] && {
+        shift
+        _fetch_configs "$@"
+        return 0
+    }
+    _manage_override_configs "$@"
+}
+
+_manage_override_configs() {
     OPTIND=1
     local working_dir=$(pwd)
     local just_show_usage=0
@@ -33,18 +43,20 @@ haskell-overridez() {
             \?)
                 >&2 echo "Invalid option: -$OPTARG"
                 >&2 echo
-                >&2 _show_usage
+                >&2 _show_usage_manage_override
                 return 1
                 ;;
         esac
     done
     shift $((OPTIND-1))
 
+    (( $just_show_usage == 1 )) && _show_usage && return 0
     for arg_func in _save_github_json _delete_if_present _save_cabal2nix
     do
-        (( $# == 0 )) && [[ $next_func == $arg_func ]] && just_show_usage=1
+        (( $# == 0 )) && [[ $next_func == $arg_func ]] && {
+            >&2 _show_usage_manage_override; return 1;
+        }
     done
-    (( $just_show_usage == 1 )) && _show_usage && return 0
     _pushd_wd $working_dir
     trap 'popd > /dev/null' INT TERM EXIT
     $next_func "$@"
@@ -60,6 +72,16 @@ _pushd_wd() {
 _show_usage() {
     cat <<EOF
 haskell-overridez - manage nix overrides for haskell packages
+haskell-overridez fetch - fetch nix overrides from another git repo
+
+EOF
+    _show_usage_manage_override
+    _show_usage_fetch
+}
+
+_show_usage_manage_override() {
+    cat <<EOF
+haskell-overridez
 
 It adds a file to the nix subdirectory of a project containing either the
 'prefetch' json or the nix expression output of cabal2nix describing the
@@ -116,7 +138,7 @@ EOF
 
 _delete_if_present() {
     local project=${1:-''}
-    [[ -z $project ]] && { >&2 _show_usage; return 1; }
+    [[ -z $project ]] && { >&2 _show_usage_manage_override; return 1; }
     local github_file="$(pwd)/nix/git-json/${project}.json"
     local cabal2nix_file="$(pwd)/nix/nix-expr/${project}.nix"
     [[ -f ${github_file} ]] && rm ${github_file} && _echo "removed github json for $project"
@@ -146,7 +168,7 @@ EOF
 
 _save_github_json() {
     local project=${1:-''}
-    [[ -z $project ]] && { >&2 _show_usage; return 1; }
+    [[ -z $project ]] && { >&2 _show_usage_manage_override; return 1; }
     local revision=${2:-''}
     local url="https://github.com/${project}.git"
     local out="$(pwd)/nix/git-json/${project##*/}.json"
@@ -162,7 +184,7 @@ _save_github_json() {
 _save_cabal2nix() {
     local pkg_uri=${1:-''}
     shift
-    [[ -z $pkg_uri ]] && { >&2 _show_usage; return 1; }
+    [[ -z $pkg_uri ]] && { >&2 _show_usage_manage_override; return 1; }
     _echo "cmd is cabal2nix $pkg_uri $@"
     [[ $pkg_uri =~ "cabal://" ]] && { _save_cabal2nix_cabal_uri $pkg_uri "$@"; return 0; }
     local nix_expr_tmp=$(mktemp -q)
@@ -258,7 +280,7 @@ _maybe_add_options() {
 _add_option() {
     local opt_name=${1:-''}
     local project=${2:-''}
-    [[ -z $project ]] && { >&2 _show_usage; return 1; }
+    [[ -z $project ]] && { >&2 _show_usage_manage_override; return 1; }
     local out="$(pwd)/nix/options/${opt_name}"
     _ensure_parent_dir $out
     [[ -f $out ]] || { echo $project >> $out ; return 0; }
@@ -275,6 +297,170 @@ _maybe_remove_option() {
         local out="$(pwd)/nix/options/${opt_name}"
         [[ -f $out ]] && sed -i'' -e "/${project}$/d" $out
     done
+}
+
+_fetch_configs() {
+    OPTIND=1
+    local working_dir=$(pwd)
+    local opt
+    while getopts ":o:" opt;
+    do
+        case $opt in
+            o)
+                working_dir=$OPTARG
+                ;;
+            \?)
+                >&2 echo "Invalid option: -$OPTARG"
+                >&2 echo
+                >&2 _show_usage_fetch
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND-1))
+    _pushd_wd $working_dir
+    trap 'popd > /dev/null' INT TERM EXIT
+    _fetch_to_cwd "$@"
+}
+
+_show_usage_fetch() {
+    cat <<EOF
+haskell-overridez fetch
+
+Fetches configuration files from another git repositories and saves them locally.
+
+Usage:
+  haskell-overridez fetch [<url://to/a/git/repo> [revision [expected-hash]]]
+    # Fetches recognized haskell-overridez config from url://to/a/git/repo and stores
+    # it in <nix/path/derived/from/url>. If revision is specified,
+    # it is cloned at that revision. If expected-hash is provided, the command
+    # exits if the clone repo does not have the required hash
+
+  haskell-overridez fetch [-o <target-dir> ] ...
+    # Copy the fetched configs to target-dir instead of the current working dir
+
+Examples:
+
+  haskell-overridez fetch https://github.com/adetokunbo/example-fetched-haskell-overridez
+    # Fetches override config used in that repo
+    # and saves it to nix/github.com/adetokunbo/example-fetched-haskell-overridez
+
+  haskell-overridez fetch file:///my/private/git/project
+    # Fetches override config if represent from the project
+    # and saves it to nix/localhost/project
+
+EOF
+}
+
+_fetch_to_cwd() {
+    local target=${1:-''}
+    local rev=${2:-''}
+    local hash=${3:-''}
+    [[ -z $target ]] && { >&2 _show_usage_fetch; return 1; }
+
+    # figure out the save destination first; it fails if the target is invalid
+    local out_subdir="nix/$(_out_subdir_from_target $target)"
+    local tmpdst=$(mktemp -d)
+    trap "rm -fR $tmpdst" RETURN
+    _save_using_nix_prefetch_git $tmpdst $target $rev $hash
+    _has_hoz_configs $tmpdst || return 1
+    _echo "saving configs from $target to $out_subdir"
+    _sync_hoz_configs $tmpdst $out_subdir
+}
+
+_out_subdir_from_target() {
+    local target=${1:-''}
+    [[ -z $target ]] && { >&2 _show_usage_fetch; return 1; }
+    local suffix=${target#*://}
+    local prefix=${target%://*}
+    [[ ${target} == ${prefix} ]] && {
+        _echo "${target} is not a valid url"
+        >&2 _show_usage_fetch
+        return 1
+    }
+
+    # for file:/// urls, use "localhost/<basename of git dir>"
+    [[ $prefix == "file" ]] && echo "localhost/${suffix##*/}" && return 0
+
+    # for other urls use the whole suffix, including the hostname
+    echo $suffix
+}
+
+_save_using_nix_prefetch_git() {
+    local tmpdst=${1:-''}
+    local target=${2:-''}
+    local rev=${3:-''}
+    local hash=${4:-''}
+    [[ -z $target ]] && { >&2 _show_usage_fetch; return 1; }
+
+    # if the revision and hash are known, use the --builder flag with
+    # nix-prefetch-git to download the repo to a tmp output directory
+    [[ -n $hash ]] && {
+        nix-prefetch-git --quiet --builder --out $tmpdst $target $rev $hash
+        return 0
+    }
+
+    # otherwise use nix-prefetch-git to find the rev and hash then recurse
+    # this is necessary because the builder flag requires the rev and hash
+    local tmp_json=$(mktemp -q)
+    nix-prefetch-git --quiet $target $rev > $tmp_json
+    [[ -z $rev ]] && rev=$(_json_field "rev" $tmp_json)
+    hash=$(_json_field "sha256" $tmp_json)
+    [[ -z $rev ]] || [[ -z $hash ]] && {
+        _echo "fetch failed: 'sha256' or 'rev' are either not given or found in:"
+        >&2 cat $tmp_json
+    }
+    _save_using_nix_prefetch_git $tmpdst $target $rev $hash
+}
+
+_json_field() {
+    local name=${1:-''}
+    local src=${2:-''}
+    [[ -z $src ]] && return 1
+    cat $src | grep "$name" | sed -e "s/.*\"$name\": \"\(.*\)\".*/\1/"
+}
+
+_has_hoz_configs() {
+    local src=${1:-''}
+    [[ -z $src ]] && return 1
+    local hoz_globs=('nix/nix-expr/*.nix' 'nix/git-json/*.json')
+    for known_opt in $KNOWN_OPTS
+    do
+        hoz_globs+=("nix/options/$known_opt")
+    done
+    for glob in "${hoz_globs[@]}"
+    do
+        _files_exist "$src/$glob" && return 0
+    done
+
+    _echo "bad fetch: could not find expected config files"
+    return 1
+}
+
+_files_exist() {
+    local glob=${1:-''}
+    [[ -z $glob ]] && return 1;
+    $(ls $glob >> /dev/null 2>&1)
+}
+
+_sync_hoz_configs() {
+    local src=${1:-''}
+    local dst=${2:-''}
+    [[ -z $dst ]] && return 1
+    _copy_if_present "$src/nix/nix-expr/*.nix" "$dst/nix-expr"
+    _copy_if_present "$src/nix/git-json/*.json" "$dst/git-json"
+    for known_opt in $KNOWN_OPTS
+    do
+        _copy_if_present "$src/nix/options/$known_opt" "$dst/options"
+    done
+}
+
+_copy_if_present()   {
+    local glob=${1:-''}
+    local dst=${2:-''}
+    [[ -z $dst ]] && return 1
+    _files_exist $glob || return 0
+    mkdir -p $dst && cp -v $glob $dst
 }
 
 _echo() {
