@@ -65,6 +65,7 @@ _test_one_project() {
 
     # cleanup if the debug flag is not set
     [[ -d nix ]] && [[ -z ${HOZ_TEST_DEBUG:-''} ]] && rm -fR nix || return 0
+
 }
 
 _prepare_nix_dir() {
