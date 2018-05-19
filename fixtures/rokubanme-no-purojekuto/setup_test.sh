@@ -2,7 +2,6 @@
 set -euo pipefail
 
 setup_test() {
-    set -x
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir > /dev/null
 
@@ -17,7 +16,6 @@ setup_test() {
     haskell-overridez -g Gabriel439/Haskell-Managed-Library
 
     popd > /dev/null
-    set +x
 }
 
 setup_test
