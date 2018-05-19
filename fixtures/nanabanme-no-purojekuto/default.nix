@@ -10,15 +10,15 @@ let
           managed = null;
           optparse-applicative = null;
           turtle = null;
-          rokubanme-no-purojekuto = self.callPackage ./nix/rokubanme-no-purojekuto.nix {};
+          nanabanme-no-purojekuto = self.callPackage ./nix/nanabanme-no-purojekuto.nix {};
         };
       in {
         haskellPackages = pkgs.haskellPackages.override {
-          overrides = composeExtensionsList [dropTestPkgs (overridez.allIn ./nix)];
+          overrides = dropTestPkgs;
         };
       };
   };
   pkgs = import <nixpkgs> { inherit config; };
 in
-  { rokubanme-no-purojekuto = pkgs.haskellPackages.rokubanme-no-purojekuto;
+  { nanabanme-no-purojekuto = pkgs.haskellPackages.nanabanme-no-purojekuto;
   }
