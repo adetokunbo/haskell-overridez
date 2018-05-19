@@ -9,6 +9,7 @@ test() {
 
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     local test_descs=()
+    local skipped_descs=()
     fixture_dir=$this_dir/fixtures
     for d in $(ls $fixture_dir)
     do
@@ -20,8 +21,10 @@ test() {
         [[ -f ./SKIP ]] && {
             local reason=$(cat ./SKIP)
             local cause="${reason:-'uncompleted test'}"
+            local skipped_desc="$cause (in $test_dir)"
+            skipped_descs+=("$skipped_desc")
             echo
-            echo "SKIPPED: $test_dir: $cause"
+            echo "SKIPPED: $skipped_desc"
             echo
             popd > /dev/null
             continue
@@ -40,7 +43,7 @@ test() {
     done
 
     echo
-    echo "completed: ${#test_descs[@]} integration tests"
+    echo "completed: ${#test_descs[@]} integration tests, skipped ${#skipped_descs[@]}"
     for test_desc in "${test_descs[@]}"
     do
         echo "OK: ${test_desc}"
@@ -57,11 +60,11 @@ _test_one_project() {
     _add_current_project_to_nix
     source setup_test.sh
 
-    # test
+    # test, defaulting 'nix-build'
     [[ -f test.sh ]] && source test.sh || nix-build --no-out-link
 
-    # cleanup
-    [[ -d nix ]] && rm -fR nix
+    # cleanup if the debug flag is not set
+    [[ -d nix ]] && [[ -z ${HOZ_TEST_DEBUG:-''} ]] && rm -fR nix || return 0
 }
 
 _prepare_nix_dir() {
@@ -78,10 +81,9 @@ EOF
 
 _add_current_project_to_nix() {
     local cwd=$(pwd)
-    local nix_file="nix/nix-expr/${cwd##*/}.nix"
-    mkdir -p nix/nix-expr
+    local nix_file="./nix/${cwd##*/}.nix"
     cabal2nix . > $nix_file
-    sed -i'.bak' -e 's|src = ./.|src = ../../.|' $nix_file
+    sed -i'.bak' -e 's|src = ./.|src = ../.|' $nix_file
 }
 
 test

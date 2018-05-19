@@ -1,12 +1,23 @@
 let
   overridez = import ./nix/haskell-overridez.nix;
-  githubKara = overridez.allIn ./nix/localhost/example-fetched-haskell-overridez;
+  localhostKara = overridez.allIn ./nix/localhost/sanbanme-no-yagai-purojekuto;
   config = {
-    packageOverrides = pkgs: {
-      haskellPackages = pkgs.haskellPackages.override {
-        overrides = overridez.combineAllIn ./nix [githubKara];
+    packageOverrides = pkgs:
+      let
+        inherit (pkgs.lib) composeExtensions fold;
+        composeExtensionsList = fold composeExtensions (_: _: {});
+        dropTestPkgs = self: super: {
+          foldl = null;
+          managed = null;
+          optparse-applicative = null;
+          turtle = null;
+          sanbanme-no-yagai-purojekuto = self.callPackage ./nix/sanbanme-no-yagai-purojekuto.nix {};
+        };
+      in {
+        haskellPackages = pkgs.haskellPackages.override {
+          overrides = composeExtensionsList [dropTestPkgs (overridez.combineAllIn ./nix [localhostKara])];
+        };
       };
-    };
   };
   pkgs = import <nixpkgs> { inherit config; };
 in

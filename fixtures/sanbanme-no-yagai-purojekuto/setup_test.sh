@@ -6,8 +6,7 @@ setup_test() {
     pushd $this_dir > /dev/null
     local cwd=$(pwd)
     local out_dir="${HOZ_TMP_DIR}/${cwd##*/}"
-    local out_dir=$(mktemp -d)
-    mkdir -p $out_dir
+     mkdir -p $out_dir
 
     # fetch the initial version of the github example, save it locally, and use
     # that as a local git repo (needs all the flags belows; plus the revision and hash)
