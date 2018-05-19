@@ -45,7 +45,7 @@ test() {
     do
         echo "OK: ${test_desc}"
     done
-    [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set +x
+    [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set +x || return 0
 }
 
 _test_one_project() {
