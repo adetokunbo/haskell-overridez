@@ -79,7 +79,7 @@ rec {
       readDirOverrides = fetcher: toFetchAttrs: d:
         let filePath = n: d + "/${n}.json";
             loadFuncs = [fetcher toFetchAttrs fromJSON readFile filePath];
-            mkOverride = n: self.callCabal2nix n (applyFuncs loadFuncs n) {};
+            mkOverride = n: self.callCabal2nix n (applyFuncs loadFuncs n) { };
             toPackage = file: _: _trace "found override (git-json): ${file}" rec {
               name  = replaceStrings [ ".json" ] [ "" ] file;
               value = _trace ("using override (git-json): ${name}") (mkOverride name);

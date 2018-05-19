@@ -61,7 +61,7 @@ _test_one_project() {
     source setup_test.sh
 
     # test, defaulting 'nix-build'
-    [[ -f test.sh ]] && source test.sh || nix-build --no-out-link
+    [[ -f test.sh ]] && source test.sh || nix-build --no-out-link --show-trace
 
     # cleanup if the debug flag is not set
     [[ -d nix ]] && [[ -z ${HOZ_TEST_DEBUG:-''} ]] && rm -fR nix || return 0
