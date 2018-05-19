@@ -7,12 +7,13 @@ setup_test() {
 
     HOZ_OPTS=dontCheck
 
-    # Using -g with optparse-applicative causes infinite recursion
+    # Using -g with foldl or optparse-applicative makes cabal2nix infinitely
+    # recurse when converting the json to nix-expr
     haskell-overridez https://github.com/pcapriotti/optparse-applicative
+    haskell-overridez https://github.com/Gabriel439/Haskell-Foldl-Library
 
     HOZ_OPTS=doJailbreak
     haskell-overridez -g Gabriel439/Haskell-Turtle-Library
-    haskell-overridez -g Gabriel439/Haskell-Foldl-Library
     haskell-overridez -g Gabriel439/Haskell-Managed-Library
 
     popd > /dev/null

@@ -172,14 +172,42 @@ _save_github_json() {
     [[ -z $project ]] && { >&2 _show_usage_manage_override; return 1; }
     local revision=${2:-''}
     local url="https://github.com/${project}.git"
-    local out="$(pwd)/nix/git-json/${project##*/}.json"
-    _ensure_parent_dir $out
+
     _init_project
-    _echo "cmd is nix-prefetch-git $url $revision"
-    nix-prefetch-git $url $revision > $out && {
-        _echo "saved github json for ${project} to ${out}"
-        _maybe_add_options $project
+
+    local tmpdst=$(mktemp -d)
+    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -fR $tmpdst" RETURN
+    _save_using_nix_prefetch_git $tmpdst $url $revision
+    local package=$(_name_from_default_nix $tmpdst)
+    [[ -z "$package" ]] && package=$(_name_from_cabal $tmpdst)
+    [[ -z "$package" ]] && {
+        package="${project##*/}"
+        _echo "*warning* no cabal or default.nix were present at the top-level of $url"
+        _echo "*warning* defaulting to ${package} as the package name; you may want to change this"
     }
+
+    local out="$(pwd)/nix/git-json/${package}.json"
+    _ensure_parent_dir $out
+    cp $tmpdst/github.json $out && {
+        _echo "saved github json for ${url} to ${out}"
+        _maybe_add_options $package
+    }
+}
+
+_name_from_cabal() {
+    local dst=${1:-''}
+    [[ -z $dst ]] && return 1
+    local glob="${dist}/*.cabal"
+    ls ${glob} >> /dev/null 2>&1 && {
+        cat ${glob} | sed -e '/Name:\s*/ s/\Name:[[:space:]]*\([^:space:]*\)/\1/ ; q '
+    }
+}
+
+_name_from_default_nix() {
+    local dst=${1:-''}
+    [[ -z $dst ]] && return 1
+    local target="$dst/default.nix"
+    [[ -f "$target" ]] && _nix_expr_field "pname" $target
 }
 
 _save_cabal2nix() {
@@ -189,15 +217,22 @@ _save_cabal2nix() {
     _echo "cmd is cabal2nix $pkg_uri $@"
     [[ $pkg_uri =~ "cabal://" ]] && { _save_cabal2nix_cabal_uri $pkg_uri "$@"; return 0; }
     local nix_expr_tmp=$(mktemp -q)
-    trap "rm $nix_expr_tmp" INT TERM EXIT
+    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -f ${nix_expr_tmp}" RETURN
     cabal2nix $pkg_uri "$@" > $nix_expr_tmp
-    local project=$(cat $nix_expr_tmp | grep 'pname' | sed -e 's/.*pname = "\(.*\)".*/\1/')
+    local project=$(_nix_expr_field "pname" "$nix_expr_tmp")
     local out="$(pwd)/nix/nix-expr/${project}.nix"
     _ensure_parent_dir $out
     _init_project
     cp $nix_expr_tmp $out
     _echo "saved nix-expr for ${project} to ${out}"
     _maybe_add_options $project
+}
+
+_nix_expr_field() {
+    local name=${1:-''}
+    local src=${2:-''}
+    [[ -z $src ]] && return 1
+    cat $src | grep "$name" | sed -e "s/.*$name = \"\(.*\)\".*/\1/"
 }
 
 _save_cabal2nix_cabal_uri() {
@@ -227,7 +262,8 @@ _save_cabal2nix_cabal_uri() {
     local unpacked_path="file://$(pwd)/${in_tar}"
     local unpacked_root=$(pwd)/${in_tar%%/*}
     export HOME=$unpacked_root
-    trap "rm -fR $unpacked_root" RETURN
+    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -fR $unpacked_root" RETURN
+
     [[ $version == '' ]] && {
         local layer1=${in_tar#*/}
         local layer2=${layer1#*/}
@@ -363,7 +399,8 @@ _fetch_to_cwd() {
     # figure out the save destination first; it fails if the target is invalid
     local out_subdir="nix/$(_out_subdir_from_target $target)"
     local tmpdst=$(mktemp -d)
-    trap "rm -fR $tmpdst" RETURN
+    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -fR $tmpdst" RETURN
+
     _save_using_nix_prefetch_git $tmpdst $target $rev $hash
     _has_hoz_configs $tmpdst || return 1
     _echo "saving configs from $target to $out_subdir"
@@ -412,6 +449,7 @@ _save_using_nix_prefetch_git() {
         _echo "fetch failed: 'sha256' or 'rev' are either not given or found in:"
         >&2 cat $tmp_json
     }
+    cat $tmp_json > "$tmpdst/github.json"
     _save_using_nix_prefetch_git $tmpdst $target $rev $hash
 }
 
