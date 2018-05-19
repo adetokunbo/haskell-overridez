@@ -58,7 +58,8 @@ _manage_override_configs() {
         }
     done
     _pushd_wd $working_dir
-    trap 'popd > /dev/null' INT TERM EXIT
+    [[ -n ${HOZ_DEBUG:-''} ]] && set -x
+    trap 'set +x; popd > /dev/null' INT TERM EXIT
     $next_func "$@"
     return 0
 }
@@ -317,9 +318,10 @@ _fetch_configs() {
                 ;;
         esac
     done
+    [[ -n ${HOZ_DEBUG:-''} ]] && set -x
     shift $((OPTIND-1))
     _pushd_wd $working_dir
-    trap 'popd > /dev/null' INT TERM EXIT
+    trap 'set +x; popd > /dev/null' INT TERM EXIT
     _fetch_to_cwd "$@"
 }
 
