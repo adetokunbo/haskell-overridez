@@ -88,7 +88,7 @@ let
   pkgs = import <nixpkgs> { inherit config; };
 
 in
-  {};
+  {}
 
 ```
 
@@ -111,7 +111,7 @@ let
   pkgs = import <nixpkgs> { inherit config; };
 
 in
-  {};
+  {}
 
 
 ```

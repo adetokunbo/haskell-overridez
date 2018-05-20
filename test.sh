@@ -2,8 +2,14 @@
 set -euo pipefail
 
 test() {
-    set -x
+    [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set -x
+    HOZ_TMP_DIR=$(mktemp -d)
+    trap "rm -fR $HOZ_TMP_DIR" INT TERM EXIT
+    trap 'echo "FAILED: $test_desc"; return 1' ERR
+
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
+    local test_descs=()
+    local skipped_descs=()
     fixture_dir=$this_dir/fixtures
     for d in $(ls $fixture_dir)
     do
@@ -14,16 +20,35 @@ test() {
         # maybe skip
         [[ -f ./SKIP ]] && {
             local reason=$(cat ./SKIP)
-            local cause="${reason:-'incomplete test'}"
+            local cause="${reason:-'uncompleted test'}"
+            local skipped_desc="$cause (in $test_dir)"
+            skipped_descs+=("$skipped_desc")
             echo
-            echo "SKIPPED: $test_dir: $cause"
+            echo "SKIPPED: $skipped_desc"
             echo
             popd > /dev/null
             continue
         }
+
+        local test_desc="project: $test_dir"
+        [[ -f ./DESC ]] && test_desc="$(cat DESC) (in $test_dir)"
+        test_descs+=("$test_desc")
+        echo
+        echo "testing: ${test_desc}"
         _test_one_project $test_dir
+        echo
+        echo "OK: ${test_desc}"
+
+        popd > /dev/null
     done
-    set +x
+
+    echo
+    echo "completed: ${#test_descs[@]} integration tests, skipped ${#skipped_descs[@]}"
+    for test_desc in "${test_descs[@]}"
+    do
+        echo "OK: ${test_desc}"
+    done
+    [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set +x || return 0
 }
 
 _test_one_project() {
@@ -31,26 +56,16 @@ _test_one_project() {
     [[ -z $test_dir ]] && return 1;
 
     # setup
-    trap 'popd > /dev/null' INT TERM EXIT
-
-    echo
-    echo "testing project: ${test_dir}"
-    echo
-
     _prepare_nix_dir
     _add_current_project_to_nix
-    ./setup_test.sh
+    source setup_test.sh
 
-    # test
-    nix-build --no-out-link
-    echo
-    echo "OK: test project : ${test_dir}"
-    echo
+    # test, defaulting 'nix-build'
+    [[ -f test.sh ]] && source test.sh || nix-build --no-out-link --show-trace
 
-    # cleanup
-    [[ -d nix ]] && rm -fR nix
-    popd > /dev/null
-    trap - INT TERM EXIT
+    # cleanup if the debug flag is not set
+    [[ -d nix ]] && [[ -z ${HOZ_TEST_DEBUG:-''} ]] && rm -fR nix || return 0
+
 }
 
 _prepare_nix_dir() {
@@ -66,11 +81,10 @@ EOF
 }
 
 _add_current_project_to_nix() {
-    cwd=$(pwd)
-    mkdir -p nix/nix-expr
-    local nix_file="nix/nix-expr/${cwd##*/}.nix"
+    local cwd=$(pwd)
+    local nix_file="./nix/${cwd##*/}.nix"
     cabal2nix . > $nix_file
-    sed -i'.bak' -e 's|src = ./.|src = ../../.|' $nix_file
+    sed -i'.bak' -e 's|src = ./.|src = ../.|' $nix_file
 }
 
 test

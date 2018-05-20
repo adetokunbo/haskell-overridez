@@ -1,5 +1,6 @@
 let
   overridez = import ./nix/haskell-overridez.nix;
+  localhostKara = overridez.allIn ./nix/localhost/sanbanme-no-yagai-purojekuto;
   config = {
     packageOverrides = pkgs:
       let
@@ -10,15 +11,15 @@ let
           managed = null;
           optparse-applicative = null;
           turtle = null;
-          rokubanme-no-purojekuto = self.callPackage ./nix/rokubanme-no-purojekuto.nix {};
+          sanbanme-no-yagai-purojekuto = self.callPackage ./nix/sanbanme-no-yagai-purojekuto.nix {};
         };
       in {
         haskellPackages = pkgs.haskellPackages.override {
-          overrides = composeExtensionsList [dropTestPkgs (overridez.allIn ./nix)];
+          overrides = composeExtensionsList [dropTestPkgs (overridez.combineAllIn ./nix [localhostKara])];
         };
       };
   };
   pkgs = import <nixpkgs> { inherit config; };
 in
-  { rokubanme-no-purojekuto = pkgs.haskellPackages.rokubanme-no-purojekuto;
+  { sanbanme-no-yagai-purojekuto = pkgs.haskellPackages.sanbanme-no-yagai-purojekuto;
   }
