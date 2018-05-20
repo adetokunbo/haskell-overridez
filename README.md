@@ -20,7 +20,7 @@ nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/mas
 
 ```
 
-## Usage
+## Basic usage
 
 Installation adds the command `haskell-overridez` to the nix environment.
 
@@ -38,7 +38,7 @@ $ haskell-overridez -g reflex-frp/reflex-dom-contrib
 $ haskell-overridez https://github.com/tathougies/beam --subpath beam-core
 ```
 
-There various options for managing the overrides; to see them all, you can read the usage:
+There are various options for managing the overrides; to see them all, you can read the help message:
 
 ```bash
 $ haskell-overridez -h
@@ -49,7 +49,7 @@ haskell-overridez - manage nix overrides for haskell packages
 
 ### Project Layout
 
-Given the example commands above, `haskell-overridez` creates a project with the following layout:
+Given the previous example commands, `haskell-overridez` creates a project with the following layout:
 
 ```
 ├── default.nix
@@ -72,7 +72,7 @@ Given the example commands above, `haskell-overridez` creates a project with the
 
 ### Using the library functions
 
-The library functions can be used from default.nix as follows:
+The library functions can be used from `default.nix` as follows:
 
 ```nix
 
@@ -92,7 +92,7 @@ in
 
 ```
 
-Some overrides can't be specified using `haskell-overridez` and will need to be specified in other ways.  The two sets can be combined using `combineAllIn` instead of `allIn`:
+Some overrides can't be specified using the features of `haskell-overridez` and need to be specified directly.  These direct overrides can be combined with the configured ones using `combineAllIn` instead of `allIn`:
 
 ```nix
 
@@ -147,6 +147,33 @@ in
 
 ```
 
+## Fetching shared configs
+
+`haskell-overridez` makes it easy to share the overrides it manages.  As long the overrides file are saved in a git repository, they can be fetched for use in other projects.
+`haskell-overridez fetch` copies the override configuration from the target git repo to a subdirectory of the `nix` directory.
+
+### Sharing public projects
+
+- Use `haskell-overridez` to manage the `nix` overrides of a project
+- Publish the project to an online git repository, ensuring that the `nix` folder is a top-level folder in the project
+- Use `haskell-overridez fetch <url-of-repo>` to clone the project's nix configs
+
+#### Fetch configs from private git clones
+
+To fetch from local private git repositories, use a [file url][] to the git directory.
+
+#### Examples
+
+- [This example repo][] can have its configs fetched.
+- See the integration test fixtures for examples of [remote fetching][] and [local fetching][], and for usage of [a remote-fetched config][] and of [a local-fetched config][].
+
+[This example repo]: https://github.com/adetokunbo/example-fetched-haskell-overridez
+[file url]: https://en.wikipedia.org/wiki/File_URI_scheme
+[remote fetching]: https://github.com/adetokunbo/haskell-overridez/blob/8c18163683145f11fdf37b9ee85860452f2ea057/fixtures/ichibanme-no-yagai-purojekuto/setup_test.sh
+[local fetching]: https://github.com/adetokunbo/haskell-overridez/blob/8c18163683145f11fdf37b9ee85860452f2ea057/fixtures/sanbanme-no-yagai-purojekuto/setup_test.sh
+[a remote-fetched config]: https://github.com/adetokunbo/haskell-overridez/blob/8c18163683145f11fdf37b9ee85860452f2ea057/fixtures/ichibanme-no-yagai-purojekuto/default.nix
+[a local-fetched config]: https://github.com/adetokunbo/haskell-overridez/blob/8c18163683145f11fdf37b9ee85860452f2ea057/fixtures/sanbanme-no-yagai-purojekuto/default.nix
+
 ## Contributions
 
 Contributions are welcome! Please raise an [issue](https://github.com/adetokunbo/haskell-overridez/issues) to report any problems or [open a PR](https://github.com/adetokunbo/haskell-overridez/pulls) with fixes and improvements.
@@ -156,7 +183,6 @@ Contributions are welcome! Please raise an [issue](https://github.com/adetokunbo
   1. Ask people to try it out to see if its useful (.. soonish)
   2. Iterate on its features to make more useful (.. going forward)
   3. (??) Merge it into [nixpkgs](https://github.com/NixOS/nixpkgs) (later, if people think that's a good idea)
-
 
 ## License
 BSD-3 clause
