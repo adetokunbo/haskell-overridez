@@ -70,6 +70,16 @@ Given the previous example commands, `haskell-overridez` creates a project with 
  3. There are subdirectories (`nix-expr`, `git-json`) that contain the output from the tools.
  4. The accompanying library functions use the contents of the subdirectories to generate a nix expression that combines all the overrides into a single nix overlay.
 
+### Updating after releases
+
+At the moment, 'releases' occur when changes are pushed from the develop branch to the master branch.
+
+When this happens, the hash of the 'haskell-overridez' project changes.  This mean the hash specified in the `/nix/haskell-overridez.nix` of existing projects is wrong, so the derivations that use that fail.  The tool provides a simple way to update the file:
+
+```bash
+  haskell-overridez -i # initializes or re-initializes ./nix/haskell-overridez.nix
+```
+
 ### Using the library functions
 
 The library functions can be used from `default.nix` as follows:
