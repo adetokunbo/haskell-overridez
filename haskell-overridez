@@ -93,8 +93,13 @@ create an override function that combines all the specified overrides.
 
 Usage:
   haskell-overridez -i
-    # Initialize the project: this simply adds nix/haskell-overridez.nix
-    # to simplify the changes needed to default.nix
+    # {Re,}initialize the project: this adds nix/haskell-overridez.nix
+    # if it not present or updates it if it's stale.
+    #
+    # nix/haskell-overridez.nix encapsulates the remote import
+    # of the haskell-override nixpkgs functions, allowing the code
+    # to import these functions to be as simple as
+    # import ./nix/haskell-overridez.nix
 
   haskell-overridez [-g <username/project> [<revision>]]
     # Adds the override as a json file describing the git repo of the package
@@ -149,8 +154,9 @@ _delete_if_present() {
 }
 
 _init_project() {
+    local no_update=${1:-''}
     local out="$(pwd)/nix/haskell-overridez.nix"
-    [[ -f $out ]] && return 0;
+    [[ -f $out ]] && [[ -n $no_update ]] && return 0;
     local archive_url="https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz"
     local the_hash=$(nix-prefetch-url --unpack ${archive_url})
     _ensure_parent_dir $out
@@ -173,10 +179,10 @@ _save_github_json() {
     local revision=${2:-''}
     local url="https://github.com/${project}.git"
 
-    _init_project
+    _init_project "if necessary"
 
     local tmpdst=$(mktemp -d)
-    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -fR $tmpdst" RETURN
+    trap "rm -fR $tmpdst" RETURN
     _save_using_nix_prefetch_git $tmpdst $url $revision
     local package=$(_name_from_default_nix $tmpdst)
     [[ -z "$package" ]] && package=$(_name_from_cabal $tmpdst)
@@ -216,16 +222,18 @@ _save_cabal2nix() {
     [[ -z $pkg_uri ]] && { >&2 _show_usage_manage_override; return 1; }
     _echo "cmd is cabal2nix $pkg_uri $@"
     [[ $pkg_uri =~ "cabal://" ]] && { _save_cabal2nix_cabal_uri $pkg_uri "$@"; return 0; }
-    local nix_expr_tmp=$(mktemp -q)
-    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -f ${nix_expr_tmp}" RETURN
-    cabal2nix $pkg_uri "$@" > $nix_expr_tmp
-    local project=$(_nix_expr_field "pname" "$nix_expr_tmp")
-    local out="$(pwd)/nix/nix-expr/${project}.nix"
-    _ensure_parent_dir $out
-    _init_project
-    cp $nix_expr_tmp $out
-    _echo "saved nix-expr for ${project} to ${out}"
-    _maybe_add_options $project
+    local nix_expr_tmp=$(mktemp -q) && {
+        cabal2nix $pkg_uri "$@" > $nix_expr_tmp && {
+            local project=$(_nix_expr_field "pname" "$nix_expr_tmp")
+            local out="$(pwd)/nix/nix-expr/${project}.nix"
+            _ensure_parent_dir $out
+            _init_project "if necessary"
+            cp $nix_expr_tmp $out
+            _echo "saved nix-expr for ${project} to ${out}"
+            _maybe_add_options $project
+            rm -f $nix_expr_tmp
+        }
+    }
 }
 
 _nix_expr_field() {
@@ -262,7 +270,6 @@ _save_cabal2nix_cabal_uri() {
     local unpacked_path="file://$(pwd)/${in_tar}"
     local unpacked_root=$(pwd)/${in_tar%%/*}
     export HOME=$unpacked_root
-    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -fR $unpacked_root" RETURN
 
     [[ $version == '' ]] && {
         local layer1=${in_tar#*/}
@@ -272,6 +279,7 @@ _save_cabal2nix_cabal_uri() {
         _echo "*warning* specify ${name} with a version if this not OK"
     }
     _save_cabal2nix $unpacked_path "$@"
+    rm -fR $unpacked_root
 }
 
 _list_overrides() {
@@ -399,7 +407,7 @@ _fetch_to_cwd() {
     # figure out the save destination first; it fails if the target is invalid
     local out_subdir="nix/$(_out_subdir_from_target $target)"
     local tmpdst=$(mktemp -d)
-    trap "[[ -z ${HOZ_DEBUG:-''} ]] && rm -fR $tmpdst" RETURN
+    trap "rm -fR $tmpdst" RETURN
 
     _save_using_nix_prefetch_git $tmpdst $target $rev $hash
     _has_hoz_configs $tmpdst || return 1
