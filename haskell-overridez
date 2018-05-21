@@ -59,7 +59,7 @@ _manage_override_configs() {
     done
     _pushd_wd $working_dir
     [[ -n ${HOZ_DEBUG:-''} ]] && set -x
-    trap 'set +x; popd > /dev/null' INT TERM EXIT
+    trap 'set +x; popd > /dev/null' ERR INT TERM EXIT
     $next_func "$@"
     return 0
 }
@@ -203,7 +203,7 @@ _save_github_json() {
 _name_from_cabal() {
     local dst=${1:-''}
     [[ -z $dst ]] && return 1
-    local glob="${dist}/*.cabal"
+    local glob="${dst}/*.cabal"
     ls ${glob} >> /dev/null 2>&1 && {
         cat ${glob} | sed -e '/Name:\s*/ s/\Name:[[:space:]]*\([^:space:]*\)/\1/ ; q '
     }
@@ -212,7 +212,7 @@ _name_from_cabal() {
 _name_from_default_nix() {
     local dst=${1:-''}
     [[ -z $dst ]] && return 1
-    local target="$dst/default.nix"
+    local target="${dst}/default.nix"
     [[ -f "$target" ]] && _nix_expr_field "pname" $target
 }
 
@@ -308,6 +308,7 @@ _maybe_add_options() {
     local project=${1:-''}
     [[ -z $project ]] && return 0
     local hoz_opts_array=(${HOZ_OPTS//:/ })
+    local opt_name
     for opt_name in ${hoz_opts_array[@]}
     do
         local used=0
@@ -318,8 +319,9 @@ _maybe_add_options() {
                 used=1
             }
         done
-        (( used == 0)) && _echo "ignored unrecognized option: $opt_name"
+        (( $used == 0)) && _echo "ignored unrecognized option: $opt_name"
     done
+    return 0
 }
 
 _add_option() {
@@ -450,7 +452,7 @@ _save_using_nix_prefetch_git() {
     # otherwise use nix-prefetch-git to find the rev and hash then recurse
     # this is necessary because the builder flag requires the rev and hash
     local tmp_json=$(mktemp -q)
-    nix-prefetch-git --quiet $target $rev > $tmp_json
+    nix-prefetch-git $target $rev > $tmp_json
     [[ -z $rev ]] && rev=$(_json_field "rev" $tmp_json)
     hash=$(_json_field "sha256" $tmp_json)
     [[ -z $rev ]] || [[ -z $hash ]] && {
