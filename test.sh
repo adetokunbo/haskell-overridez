@@ -11,7 +11,9 @@ test() {
     local test_descs=()
     local skipped_descs=()
     fixture_dir=$this_dir/fixtures
-    for d in $(ls $fixture_dir)
+    local test_dirs="$@"
+    [[ $# == 0 ]] && test_dirs=$(ls $fixture_dir)
+    for d in $test_dirs
     do
         local test_dir=${fixture_dir}/${d}
         [[ -d $test_dir ]] || continue
@@ -35,6 +37,7 @@ test() {
         test_descs+=("$test_desc")
         echo
         echo "testing: ${test_desc}"
+        echo
         _test_one_project $test_dir
         echo
         echo "OK: ${test_desc}"
@@ -44,10 +47,13 @@ test() {
 
     echo
     echo "completed: ${#test_descs[@]} integration tests, skipped ${#skipped_descs[@]}"
-    for test_desc in "${test_descs[@]}"
-    do
-        echo "OK: ${test_desc}"
-    done
+    if (( ${#test_descs[@]} != 0 ))
+    then
+        for test_desc in "${test_descs[@]}"
+        do
+            echo "OK: ${test_desc}"
+        done
+    fi
     [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set +x || return 0
 }
 
@@ -87,4 +93,4 @@ _add_current_project_to_nix() {
     sed -i'.bak' -e 's|src = ./.|src = ../.|' $nix_file
 }
 
-test
+test "$@"
