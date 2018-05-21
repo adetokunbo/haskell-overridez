@@ -16,7 +16,7 @@ You can then install `haskell-overridez` using `nix-env`:
 
 ```bash
 
-nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz
+nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/v0.9.1.tar.gz
 
 ```
 
@@ -69,16 +69,6 @@ Given the previous example commands, `haskell-overridez` creates a project with 
  2. There is a `haskell-overridez.nix` file that contains the nix expression used to load the accompanying nix expression library.
  3. There are subdirectories (`nix-expr`, `git-json`) that contain the output from the tools.
  4. The accompanying library functions use the contents of the subdirectories to generate a nix expression that combines all the overrides into a single nix overlay.
-
-### Updating after releases
-
-At the moment, 'releases' occur when changes are pushed from the develop branch to the master branch.
-
-When this happens, the hash of the 'haskell-overridez' project changes.  This mean the hash specified in the `/nix/haskell-overridez.nix` of existing projects is wrong, so the derivations that use that fail.  The tool provides a simple way to update the file:
-
-```bash
-  haskell-overridez -i # initializes or re-initializes ./nix/haskell-overridez.nix
-```
 
 ### Using the library functions
 
@@ -159,18 +149,18 @@ in
 
 ## Fetching shared configs
 
-`haskell-overridez` makes it easy to share the overrides it manages.  As long the overrides file are saved in a git repository, they can be fetched for use in other projects.
-`haskell-overridez fetch` copies the override configuration from the target git repo to a subdirectory of the `nix` directory.
+`haskell-overridez` has a `fetch` subcommand that makes it easy to share the overrides it manages.  As long as the override config files are saved in a git repository, they can be fetched for use in other projects.
+`haskell-overridez fetch` copies the override configuration from a target git repo to a subdirectory of the current project's `nix` directory.
 
 ### Sharing public projects
 
 - Use `haskell-overridez` to manage the `nix` overrides of a project
-- Publish the project to an online git repository, ensuring that the `nix` folder is a top-level folder in the project
+- Publish the project to an online git repo, ensuring that the `nix` folder is a top-level directory in the repo
 - Use `haskell-overridez fetch <url-of-repo>` to clone the project's nix configs
 
 #### Fetch configs from private git clones
 
-To fetch from local private git repositories, use a [file url][] to the git directory.
+To fetch from local private git repos, use a [file url][] to the git directory.
 
 #### Examples
 
@@ -188,10 +178,32 @@ To fetch from local private git repositories, use a [file url][] to the git dire
 
 Contributions are welcome! Please raise an [issue](https://github.com/adetokunbo/haskell-overridez/issues) to report any problems or [open a PR](https://github.com/adetokunbo/haskell-overridez/pulls) with fixes and improvements.
 
+## Versioning
+
+`haskell-overridez` uses [semantic versioning][]. Its __public API__ is defined as the documentation provided by `haskell-overridez -h` and all the nixpkgs functions exported by `default.nix`.
+
+[semantic versioning]: http://semver.org
+
+### Updating after releases
+
+Each 'version' tag (e.g, vN.N.N) in the repository is a release.  To update managed projects to a new release
+
+- re-install `haskell-overridez`
+- update the projects to use the releases's nixpkgs functions with `haskell-overridez -i`
+
+#### Newer projects
+
+These are installed using a versioned archive file, so updating is optional.    If you don't upgrade, any existing projects will be unaffected.
+
+#### Older projects
+
+These were installed with the original installation instructions that used an archive of the  master branch.  Unfortunately, after each new release, the hash of the master branch changes,  meaning that the hash specified in `/nix/haskell-overridez.nix` of these projects becomes incorrect, and derivations using the overrides will start to fail to load.  In these cases, you __must__ update `haskell-overridez` and the affected projects.
+
+
 ## Road Map
 
-  1. Ask people to try it out to see if its useful (.. soonish)
-  2. Iterate on its features to make more useful (.. going forward)
+  1. Ask people to try it out to see if its useful ([reddit](https://www.reddit.com/r/haskell/comments/8k9g08/a_tool_that_helps_automate_the_installation_and/?ref=share&ref_source=link))
+  2. Iterate on any proposed feature requests (.. ongoing)
   3. (??) Merge it into [nixpkgs](https://github.com/NixOS/nixpkgs) (later, if people think that's a good idea)
 
 ## License

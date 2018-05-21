@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-KNOWN_OPTS="doJailbreak dontCheck dontHaddock"
+_HOZ_KNOWN_OPTS="doJailbreak dontCheck dontHaddock"
+_HOZ_VERSION=0.9.2
 
 haskell-overridez() {
     local first_arg=${1:-''}
@@ -19,7 +20,7 @@ _manage_override_configs() {
     local just_show_usage=0
     local next_func=_save_cabal2nix
     local opt
-    while getopts ":igdlho:" opt;
+    while getopts ":vigdlho:" opt;
     do
         case $opt in
             o)
@@ -39,6 +40,9 @@ _manage_override_configs() {
                 ;;
             l)
                 next_func=_list_overrides
+                ;;
+            v)
+                next_func=_show_version
                 ;;
             \?)
                 >&2 echo "Invalid option: -$OPTARG"
@@ -70,10 +74,16 @@ _pushd_wd() {
     pushd ${working_dir} > /dev/null
 }
 
+_show_version() {
+    echo $_HOZ_VERSION
+}
+
 _show_usage() {
     cat <<EOF
 haskell-overridez - manage nix overrides for haskell packages
 haskell-overridez fetch - fetch nix overrides from another git repo
+
+version: $_HOZ_VERSION
 
 EOF
     _show_usage_manage_override
@@ -157,7 +167,7 @@ _init_project() {
     local no_update=${1:-''}
     local out="$(pwd)/nix/haskell-overridez.nix"
     [[ -f $out ]] && [[ -n $no_update ]] && return 0;
-    local archive_url="https://github.com/adetokunbo/haskell-overridez/archive/master.tar.gz"
+    local archive_url="https://github.com/adetokunbo/haskell-overridez/archive/v${_HOZ_VERSION}.tar.gz"
     local the_hash=$(nix-prefetch-url --unpack ${archive_url})
     _ensure_parent_dir $out
     (cat <<EOF
@@ -312,7 +322,7 @@ _maybe_add_options() {
     for opt_name in ${hoz_opts_array[@]}
     do
         local used=0
-        for known_opt in $KNOWN_OPTS
+        for known_opt in $_HOZ_KNOWN_OPTS
         do
             [[ $opt_name == $known_opt ]] && {
                 _add_option $opt_name $project
@@ -339,7 +349,7 @@ _add_option() {
 _maybe_remove_option() {
     local project=${1:-''}
     [[ -z $project ]] && return 0
-    for opt_name in $KNOWN_OPTS
+    for opt_name in $_HOZ_KNOWN_OPTS
     do
         local out="$(pwd)/nix/options/${opt_name}"
         [[ -f $out ]] && sed -i'' -e "/${project}$/d" $out
@@ -375,7 +385,7 @@ _show_usage_fetch() {
     cat <<EOF
 haskell-overridez fetch
 
-Fetches configuration files from another git repositories and saves them locally.
+Fetches configuration files from another git repository and saves them locally.
 
 Usage:
   haskell-overridez fetch [<url://to/a/git/repo> [revision [expected-hash]]]
@@ -474,7 +484,7 @@ _has_hoz_configs() {
     local src=${1:-''}
     [[ -z $src ]] && return 1
     local hoz_globs=('nix/nix-expr/*.nix' 'nix/git-json/*.json')
-    for known_opt in $KNOWN_OPTS
+    for known_opt in $_HOZ_KNOWN_OPTS
     do
         hoz_globs+=("nix/options/$known_opt")
     done
@@ -499,7 +509,7 @@ _sync_hoz_configs() {
     [[ -z $dst ]] && return 1
     _copy_if_present "$src/nix/nix-expr/*.nix" "$dst/nix-expr"
     _copy_if_present "$src/nix/git-json/*.json" "$dst/git-json"
-    for known_opt in $KNOWN_OPTS
+    for known_opt in $_HOZ_KNOWN_OPTS
     do
         _copy_if_present "$src/nix/options/$known_opt" "$dst/options"
     done
