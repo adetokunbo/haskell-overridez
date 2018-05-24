@@ -1,0 +1,6 @@
+# haskell development
+result
+.ghc*
+dist
+dist-newstyle
+.DS_Store

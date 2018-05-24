@@ -1,0 +1,35 @@
+cabal-version: >= 2.0
+name:          haskell-overridez
+synopsis:      Manage nix overrides for haskell packages
+version:       0.10.0
+license:       BSD3
+license-file:  LICENSE
+build-type:    Simple
+author:        Tim Emiola
+maintainer:    tim.emiola@gmail.com
+description:   A tool to simplify the use of nix overrides during haskell development
+category:      Distribution,nix
+
+source-repository head
+  type:     git
+  location: https://github.com/adetokunbo/haskell-overridez.git
+
+executable haskell-overridez
+  main-is:          Main.hs
+  hs-source-dirs:   exe
+  default-language: Haskell2010
+  build-depends:    base < 5
+                  , aeson
+                  , aeson-casing
+                  , attoparsec
+                  , bytestring
+                  , exceptions
+                  , foldl
+                  , managed
+                  , neat-interpolation
+                  , optparse-applicative
+                  , system-filepath
+                  , system-fileio
+                  , text
+                  , turtle
+                  , Cabal >= 2.2.0.1
