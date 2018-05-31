@@ -1,7 +1,7 @@
 #!/bin/bash
 
 test() {
-    local invalid_fetch=https://github.com/adetokunbo/haskell-overridez
+    local invalid_fetch=https://github.com/adetokunbo/automine
     haskell-overridez fetch $invalid_fetch || return 0
     test_desc="$(cat DESC)"
     echo
