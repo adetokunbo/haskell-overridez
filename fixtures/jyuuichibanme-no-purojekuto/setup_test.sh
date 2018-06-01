@@ -4,10 +4,10 @@ set -euo pipefail
 setup_wo_options() {
     # Save the configuration without options
     export HOZ_OPTS=
-    haskell-overridez https://github.com/pcapriotti/optparse-applicative
-    haskell-overridez https://github.com/Gabriel439/Haskell-Turtle-Library
-    haskell-overridez https://github.com/Gabriel439/Haskell-Foldl-Library
-    haskell-overridez https://github.com/Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Managed-Library
 }
 
 setup_with_options() {
@@ -22,12 +22,12 @@ setup_with_options() {
 
     # Save the configuration
     export HOZ_OPTS=dontCheck
-    haskell-overridez -o $dst_dir https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/pcapriotti/optparse-applicative
     export HOZ_OPTS=doJailbreak
-    haskell-overridez -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
     export HOZ_OPTS=dontHaddock
-    haskell-overridez -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
-    haskell-overridez -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
 
     (cat <<EOF
 let

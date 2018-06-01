@@ -9,12 +9,12 @@ setup_test() {
 
     # Using -g with foldl or optparse-applicative makes cabal2nix infinitely
     # recurse when converting the json to nix-expr
-    haskell-overridez https://github.com/pcapriotti/optparse-applicative
-    haskell-overridez https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Foldl-Library
 
     HOZ_OPTS=doJailbreak
-    haskell-overridez -g Gabriel439/Haskell-Turtle-Library
-    haskell-overridez -g Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD -g Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD -g Gabriel439/Haskell-Managed-Library
 
     popd > /dev/null
 }

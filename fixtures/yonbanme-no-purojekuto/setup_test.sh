@@ -6,11 +6,11 @@ setup_test() {
     pushd $this_dir > /dev/null
 
     HOZ_OPTS=dontCheck
-    haskell-overridez cabal://optparse-applicative-0.14.2.0
+    $HOZ_TEST_CMD cabal://optparse-applicative-0.14.2.0
     HOZ_OPTS=doJailbreak
-    haskell-overridez cabal://turtle-1.5.0
-    haskell-overridez cabal://foldl-1.3.7
-    haskell-overridez cabal://managed-1.0.6
+    $HOZ_TEST_CMD cabal://turtle-1.5.0
+    $HOZ_TEST_CMD cabal://foldl-1.3.7
+    $HOZ_TEST_CMD cabal://managed-1.0.6
 
     popd > /dev/null
 }

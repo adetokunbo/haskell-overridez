@@ -20,10 +20,6 @@ aliases: &build
         command: ./fixtures/install_test_deps.sh
 
     - run:
-        name: install haskell-overridez
-        command: nix-env -i -f . && nix-env -q
-
-    - run:
         name: run the tests
         command: ./test.sh
 
