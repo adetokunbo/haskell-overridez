@@ -30,7 +30,7 @@ in
   overridez.allIn ${dst_dir}/nix/localhost/${test_name}
 EOF
     ) > ./nix/indirect_import.nix
-    haskell-overridez fetch -o $dst_dir "file://${out_dir}"
+    $HOZ_TEST_CMD fetch -o $dst_dir "file://${out_dir}"
     [[ -d $dst_dir ]] &&
     ls -l $dst_dir
     popd > /dev/null

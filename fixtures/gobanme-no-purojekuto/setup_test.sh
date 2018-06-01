@@ -6,11 +6,11 @@ setup_test() {
     pushd $this_dir > /dev/null
 
     HOZ_OPTS=dontCheck
-    haskell-overridez https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD https://github.com/pcapriotti/optparse-applicative
     HOZ_OPTS=doJailbreak
-    haskell-overridez https://github.com/Gabriel439/Haskell-Turtle-Library
-    haskell-overridez https://github.com/Gabriel439/Haskell-Foldl-Library
-    haskell-overridez https://github.com/Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Managed-Library
 
     popd > /dev/null
 }

@@ -19,7 +19,7 @@ setup_test() {
                      0w3jqim7xnrs2fg3cg60sm8k9i8fr8r1lwlwglmrmwqfbxzfxxx3
     ls -l $out_dir
 
-    haskell-overridez fetch "file://${out_dir}"
+    $HOZ_TEST_CMD fetch "file://${out_dir}"
     popd > /dev/null
 }
 

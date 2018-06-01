@@ -13,11 +13,11 @@ setup_test() {
 
     # Set up the configuration
     HOZ_OPTS=dontCheck
-    haskell-overridez -o $dst_dir https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/pcapriotti/optparse-applicative
     HOZ_OPTS=doJailbreak
-    haskell-overridez -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
-    haskell-overridez -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
-    haskell-overridez -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
 
     (cat <<EOF
 let
