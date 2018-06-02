@@ -11,7 +11,7 @@ test() {
     # the nix-build
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir
-    nix-build .
+    nix-build release.nix
     export HOZ_TEST_CMD=$(pwd)/result/bin/haskell-overridez
     popd
 
