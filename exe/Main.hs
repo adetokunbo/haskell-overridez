@@ -23,9 +23,10 @@ import           Prelude                      hiding (FilePath, empty)
 import           Control.Monad.Managed        (managed, runManaged)
 import qualified Data.Aeson                   as Aeson
 import           Data.Aeson.Casing
-import           Filesystem.Path              (directory)
+import           Filesystem.Path              (filename, directory)
 import           Filesystem.Path.CurrentOS    hiding (empty)
 import           NeatInterpolation
+import           Network.URI (parseURI, uriRegName, URI(..))
 import qualified Options.Applicative          as Options
 import           Turtle                       hiding (text)
 import qualified Turtle                       (text)
@@ -140,18 +141,36 @@ runCmd (Add {_asJson, _target, _args}, wd)
       Nothing     -> inOtherCwd wd $ saveNixExpr _target _args
       Just pkgId  -> inOtherCwd wd $ saveFromPkgId pkgId _args
 
-runCmd (Fetch {_target, _revision, _hash}, wd) = do
-  let pathToLine = maybe "" id . textToLine . format fp
-      matchRoot = Turtle.text . (flip (<>) "/") . format fp
-      dropRoot d = sed (matchRoot d *> return "")
-      grepManaged d = dropRoot d $ grep allManagedPat $ pathToLine <$> lstree d
-  inOtherCwd wd $ sh $  do
-    tmp <- using  (mktempdir "/tmp" "hoz")
-    sh $ saveRemoteRepo tmp _target _revision _hash
-    managed <- fold (grepManaged tmp) Foldl.list
-    case managed of
-      [] -> die $ format ("no haskell-overridez config found at "%s%"") _target
-      _ -> cpToPwd tmp $ (fromText . lineToText) <$> select managed
+runCmd (Fetch {_target, _revision, _hash}, wd) =
+  let
+    fpLine = maybe "" id . textToLine . format fp
+    matchRoot = Turtle.text . (flip (<>) "/") . format fp
+    dropRoot d = sed (matchRoot d *> return "")
+    grepOverridez d = dropRoot d $ grep allOverridezPat $ fpLine <$> lstree d
+    fromString = fromText . Text.pack
+    fetchPathOf u =
+      if (uriScheme u) == "file:"
+      then fileURIPath u
+      else authPath u <$> uriAuthority u
+    fileURIPath u = Just $ "nix" </>
+                    "localhost" </>
+                    (filename $ fromString $ uriPath u)
+    authPath u a = "nix" </>
+                   (fromString $ uriRegName a) </>
+                   (fromString $ tail $ uriPath u)
+  in
+    case ((parseURI $ Text.unpack _target) >>= fetchPathOf) of
+      Nothing -> die $ format ("not a valid target uri: "%s%"") _target
+      (Just path) -> do
+        cwd <- pwd
+        let dst = (maybe cwd id wd) </> path
+        sh $ do
+          tmp <- using  (mktempdir "/tmp" "hozfetch")
+          sh $ saveRemoteRepo tmp _target _revision _hash
+          overridez <- fold (grepOverridez tmp) Foldl.list
+          case overridez of
+            [] -> die $ format ("no config found at "%s%"") _target
+            _ -> cpTo dst tmp $ (fromText . lineToText) <$> select overridez
 
 setAllHashesMsg :: Text -> Text
 setAllHashesMsg name =
@@ -297,8 +316,8 @@ listOverrides = do
   let dropExt ext = sedSuffix $ ext *> ""
       matchRoot = Turtle.text . (flip (<>) "/") . format fp
       dropRoot d = sed (matchRoot d *> return "")
-      pathToLine = maybe "" id . textToLine . format fp
-      lsNoPrefix d = dropRoot d $ pathToLine <$> ls d
+      fpLine = maybe "" id . textToLine . format fp
+      lsNoPrefix d = dropRoot d $ fpLine <$> ls d
       list' title d ext = do
         exists <- testdir d
         when exists $ stdout $ title <|> "" <|> (dropExt ext $ lsNoPrefix d)
@@ -316,9 +335,10 @@ withOtherCwd
 withOtherCwd Nothing    action = pwd >>= action
 withOtherCwd (Just dst) action =
   let
-    pushd = pwd >>= (\d -> cd dst >> return d)
+    switchd = pwd >>= (\d -> cd dst >> showDir dst >> return d)
+    showDir = printf ("working dir is now "%fp%"\n")
   in
-    bracket (liftIO pushd) (\d -> liftIO $ cd d) action
+    bracket (liftIO switchd) (\d -> liftIO $ cd d) action
 
 -- | Change the current working directory while performing an action.
 inOtherCwd :: (MonadIO io, MonadMask io) => Maybe FilePath -> io a -> io a
@@ -437,14 +457,15 @@ json someText = singleJson someText >>= checkResult
         die msg
 
 -- | Copy all the relative paths specified by targets under root to the
--- current working directory.
-cpToPwd :: MonadIO io => FilePath -> Shell FilePath -> io ()
-cpToPwd root targets = sh $ do
-  d <- liftIO pwd
+-- destination.
+cpTo :: MonadIO io => FilePath -> FilePath -> Shell FilePath -> io ()
+cpTo dst root targets = sh $ do
   t <- targets
-  let newPath = d </> t
+  let newt = fromText $ Text.replace "nix/" "" $ format fp t
+      newPath = dst </> newt
       oldPath = root </> t
   mktree (directory newPath) >> cp oldPath newPath
+  liftIO $ printf ("copied "%fp%" to "%fp%"\n") oldPath newPath
 
 -- | Creates a 'Fold' which searches some 'Text' for a nix field with the given
 -- name.
@@ -477,8 +498,8 @@ parsePkgId uri =
 
 -- | A 'Pattern' that matches any file the could have been created by the
 -- haskell-overridez tool.
-allManagedPat :: Pattern Text
-allManagedPat = Foldl.fold (Fold (<|>) empty id)
+allOverridezPat :: Pattern Text
+allOverridezPat = Foldl.fold (Fold (<|>) empty id)
   ([ suffix ("nix/nix-expr/" <> notSlashes <> ".nix")
    , suffix ("nix/git-json/" <> notSlashes <> ".json")
    ] <> map (suffix . Turtle.text . optPath) knownCabalOpts)
