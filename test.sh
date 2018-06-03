@@ -53,7 +53,7 @@ test() {
     done
 
     echo
-    echo "tested haskell-overridez v$(haskell-overridez -v)"
+    echo "tested haskell-overridez v$($HOZ_TEST_CMD -v | head -n 1)"
     echo "completed: ${#test_descs[@]} integration tests, skipped ${#skipped_descs[@]}"
     if (( ${#test_descs[@]} != 0 ))
     then

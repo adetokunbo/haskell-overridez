@@ -11,22 +11,24 @@ import           Control.Exception            (SomeException, catch)
 import           Control.Monad                (join)
 import           Control.Monad.Catch          (MonadMask, bracket)
 
+import           Data.Either                  (lefts, rights)
 import           Data.Function                (on)
 import           Data.List.NonEmpty           (toList)
-import           Data.Either                  (lefts, rights)
 import           Data.Maybe                   (catMaybes, listToMaybe)
 import           Data.Text                    (Text)
 import qualified Data.Text                    as Text
+import           Data.Version                 (showVersion)
 import           GHC.Generics
+import           Paths_haskell_overridez      (version)
 import           Prelude                      hiding (FilePath, empty)
 
 import           Control.Monad.Managed        (managed, runManaged)
 import qualified Data.Aeson                   as Aeson
 import           Data.Aeson.Casing
-import           Filesystem.Path              (filename, directory)
+import           Filesystem.Path              (directory, filename)
 import           Filesystem.Path.CurrentOS    hiding (empty)
 import           NeatInterpolation
-import           Network.URI (parseURI, uriRegName, URI(..))
+import           Network.URI                  (URI (..), parseURI, uriRegName)
 import qualified Options.Applicative          as Options
 import           Turtle                       hiding (text)
 import qualified Turtle                       (text)
@@ -62,6 +64,16 @@ data Options
     , _target :: Text   -- ^ Name of the target override
     , _args   :: [Text] -- ^ Additional args for the downloading the target
     } deriving Show
+
+
+cmdlineWithVersion :: Options.Parser (Options, Maybe FilePath)
+cmdlineWithVersion =
+  Options.infoOption
+  (showVersion version)
+  (Options.long "version"
+    <> Options.short 'v'
+    <> Options.help "Show version number")
+  <*> cmdlineParser
 
 cmdlineParser :: Parser (Options, Maybe FilePath)
 cmdlineParser
@@ -128,7 +140,7 @@ mainSummary =
   \combines all the specified overrides."
 
 main :: IO ()
-main = options mainSummary cmdlineParser >>= runCmd
+main = options mainSummary cmdlineWithVersion >>= runCmd
 
 runCmd :: (Options, Maybe FilePath) -> IO ()
 runCmd (List, wd) = inOtherCwd wd $ listOverrides
@@ -138,8 +150,8 @@ runCmd (Initialize, wd) = inOtherCwd wd $ initializeProject True
 runCmd (Add {_asJson, _target, _args}, wd)
   | _asJson = inOtherCwd wd $ saveGitJson _target _args
   | otherwise = case parsePkgId _target of
-      Nothing     -> inOtherCwd wd $ saveNixExpr _target _args
-      Just pkgId  -> inOtherCwd wd $ saveFromPkgId pkgId _args
+      Nothing    -> inOtherCwd wd $ saveNixExpr _target _args
+      Just pkgId -> inOtherCwd wd $ saveFromPkgId pkgId _args
 
 runCmd (Fetch {_target, _revision, _hash}, wd) =
   let
@@ -170,7 +182,7 @@ runCmd (Fetch {_target, _revision, _hash}, wd) =
           overridez <- fold (grepOverridez tmp) Foldl.list
           case overridez of
             [] -> die $ format ("no config found at "%s%"") _target
-            _ -> cpTo dst tmp $ (fromText . lineToText) <$> select overridez
+            _  -> cpTo dst tmp $ (fromText . lineToText) <$> select overridez
 
 setAllHashesMsg :: Text -> Text
 setAllHashesMsg name =
@@ -525,7 +537,7 @@ data CabalOpt = DoJailbreak | DontCheck | DontHaddock deriving (Eq)
 
 instance Show CabalOpt where
   show DoJailbreak = "doJailbreak"
-  show DontCheck = "dontCheck"
+  show DontCheck   = "dontCheck"
   show DontHaddock = "dontHaddock"
 
 -- | Parse a cabal option from a string.

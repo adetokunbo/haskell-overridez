@@ -10,6 +10,9 @@ maintainer:    tim.emiola@gmail.com
 description:   A tool to simplify the use of nix overrides during haskell development
 category:      Distribution,nix
 
+extra-source-files:
+  README.md
+
 source-repository head
   type:     git
   location: https://github.com/adetokunbo/haskell-overridez.git
@@ -18,6 +21,8 @@ executable haskell-overridez
   main-is:          Main.hs
   hs-source-dirs:   exe
   default-language: Haskell2010
+  autogen-modules:  Paths_haskell_overridez
+  other-modules:    Paths_haskell_overridez
   build-depends:    base                 >= 4.2 && < 5
                   , aeson                == 1.2.4.0
                   , aeson-casing         >= 0.1 && < 0.3
