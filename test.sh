@@ -11,7 +11,7 @@ test() {
     # the nix-build
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir
-    nix-build .
+    nix-build release.nix
     export HOZ_TEST_CMD=$(pwd)/result/bin/haskell-overridez
     popd
 
@@ -53,7 +53,7 @@ test() {
     done
 
     echo
-    echo "tested haskell-overridez v$(haskell-overridez -v)"
+    echo "tested haskell-overridez v$($HOZ_TEST_CMD -v | head -n 1)"
     echo "completed: ${#test_descs[@]} integration tests, skipped ${#skipped_descs[@]}"
     if (( ${#test_descs[@]} != 0 ))
     then
