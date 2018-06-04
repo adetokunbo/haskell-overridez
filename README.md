@@ -72,7 +72,27 @@ Given the previous example commands, `haskell-overridez` creates a project with 
 
 ### Using the library functions
 
-The library functions can be used from `default.nix` as follows:
+The library functions can be used from `default.nix` by setting the `overlays` attribute.
+
+```nix
+
+let
+  overridez = import ./nix/haskell-overridez.nix;
+  overlays = [
+    (newPkgs: oldPkgs: {
+      haskellPackages = oldPkgs.haskellPackages.override {
+        overrides = overridez.allIn ./nix;
+      };
+    })
+  ];
+  pkgs = import <nixpkgs> { inherit overlays; };
+
+in
+  {}
+
+```
+
+or by setting the `packageOverrides` attribute of the config element.
 
 ```nix
 
@@ -101,14 +121,14 @@ let
   myManualOverride = self: super: {};
   myImportedOverrides = import /from/some/nix/file.nix;
 
-  config = {
-    packageOverrides = pkgs: {
-      haskellPackages = pkgs.haskellPackages.override {
+  overlays = [
+    (newPkgs: oldPkgs: {
+      haskellPackages = oldPkgs.haskellPackages.override {
         overrides = overridez.combineAllIn ./nix [myManualOverride myImportedOverrides];
       };
-    };
-  };
-  pkgs = import <nixpkgs> { inherit config; };
+    })
+  ];
+  pkgs = import <nixpkgs> { inherit overlays; };
 
 in
   {}
