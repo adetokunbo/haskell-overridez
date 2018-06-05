@@ -1,6 +1,6 @@
 # haskell-overridez [![CircleCI](https://circleci.com/gh/adetokunbo/haskell-overridez.svg?style=svg)](https://circleci.com/gh/adetokunbo/haskell-overridez)
 
-__haskell-overridez__ is a script and library of nix functions that simplify the use of overrides while developing haskell projects with [nixpkgs](https://github.com/NixOS/nixpkgs).
+__haskell-overridez__ is a tool and library of nix functions that simplify the use of overrides while developing haskell projects with [nixpkgs](https://github.com/NixOS/nixpkgs).
 
 ## Inspiration
 
@@ -22,9 +22,9 @@ nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/v0.
 
 ## Basic usage
 
-Installation adds the command `haskell-overridez` to the nix environment.
+Installation adds the executable `haskell-overridez` to the nix environment.
 
-It is a wrapper script around other tools whose output it writes to subdirectories of the development project.
+It writes the output of the other tools it uses to subdirectories of the development project.
 
 E.g,
 
@@ -112,7 +112,7 @@ in
 
 ```
 
-Some overrides can't be specified using the features of `haskell-overridez` and need to be specified directly.  These direct overrides can be combined with the configured ones using `combineAllIn` instead of `allIn`:
+Some overrides can't be specified using the features of `haskell-overridez` and need to be specified directly. These direct overrides can be combined with the configured ones using `combineAllIn` instead of `allIn`:
 
 ```nix
 
@@ -200,9 +200,9 @@ Contributions are welcome! Please raise an [issue](https://github.com/adetokunbo
 
 ## Versioning
 
-`haskell-overridez` uses [semantic versioning][]. Its __public API__ is defined as the documentation provided by `haskell-overridez -h` and all the nixpkgs functions exported by `default.nix`.
+`haskell-overridez` uses [PVP][].  While it does not provide a library, the package provides an executable and nixpkg functions.  Its __public API__ is defined as the documentation provided by `haskell-overridez -h` and all the nixpkgs functions exported by `default.nix`.
 
-[semantic versioning]: http://semver.org
+[PVP]: http://pvp.haskell.org
 
 ### Updating after releases
 
