@@ -1,12 +1,5 @@
+{ debug ? false }:
 let
-  overridez = import ./. {};
-  overlays = [
-   (newPkgs: oldPkgs: {
-     haskellPackages = oldPkgs.haskellPackages.override {
-       overrides = overridez.allIn ./nix;
-     };
-   })
-  ];
-  pkgs = import <nixpkgs> { inherit overlays; };
+  pkgs = import ./nix/17_09.nix;
 in
- { inherit (pkgs.haskellPackages) haskell-overridez; }
+  import ./. { inherit debug pkgs; }
