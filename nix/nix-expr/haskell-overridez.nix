@@ -6,7 +6,7 @@
 }:
 mkDerivation {
   pname = "haskell-overridez";
-  version = "0.10.0";
+  version = "0.10.0.1";
   src = ../../.;
   isLibrary = false;
   isExecutable = true;
