@@ -610,7 +610,7 @@ githubJsonPath = "github.json"
 currentVersion, archiveUrlPrefix, archiveUrl, archiveUrlSuffix :: Text
 archiveUrlPrefix = "https://github.com/adetokunbo/haskell-overridez/archive/v"
 archiveUrlSuffix = ".tar.gz"
-currentVersion = "0.9.2"
+currentVersion = Text.pack $ showVersion version
 archiveUrl = archiveUrlPrefix <> currentVersion <> archiveUrlSuffix
 
 -- | The command used to compute the hash of the library loader git repository.
