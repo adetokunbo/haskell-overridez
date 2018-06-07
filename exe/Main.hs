@@ -52,9 +52,10 @@ import           Distribution.Types.Version   (Version, nullVersion)
 
 data Options
   = Fetch
-    { _target   :: Text        -- ^ the git repo to download from
-    , _revision :: Maybe Text  -- ^ the target revision
-    , _hash     :: Maybe Text  -- ^ the hash at the target revision
+    { _target   :: Text           -- ^ the git repo to download from
+    , _subpath  :: Maybe FilePath -- ^ the directory in the repo containing the config
+    , _revision :: Maybe Text     -- ^ the target revision
+    , _hash     :: Maybe Text     -- ^ the hash at the target revision
     }
   | Delete Text  -- ^ Specifies an override to be deleted
   | List         -- ^ List the current overrides
@@ -82,11 +83,12 @@ cmdlineParser
   ((subcommand "fetch" "Fetches overrides from a git repo"
     (Fetch
       <$> argText "target" "The url hosting the shared config."
+      <*> optional (optPath "subpath" 'd'
+        "the subdirectory of the git repo that contains the config")
       <*> optional (argText "revision" "The git revision to download from")
       <*> optional (argText "hash"
                     "When specified, the hash is used to verify the contents of the repo")))
-  <|>
-    (Delete <$> optText "delete" 'd' "Deletes the overrides for a package.")
+   <|> (Delete <$> optText "delete" 'd' "Deletes the overrides for a package.")
    <|> Options.flag' List (
       Options.long "list"
         <> Options.short 'l'
@@ -101,17 +103,17 @@ cmdlineParser
       \ haskell overiddez. This file simplifies the\
       \ import of the haskell-override nixpkgs functions")
   <|>
-  (Add
-    <$> switch "github" 'g'
-    "Save github json describing the package git repo instead of a nix expr.\
-    \ TARGET is required to be <username/project>. If an additional\
-    \ argument is given, it is treated as the git revision to be downloaded"
-    <*> argText "target"
-    "The target package. Unless the --github flag is specified, this\
-    \ is any target url that the cabal2nix command understand."
-    <*> many (argText "additional args"
-               "Unless --github is specified, these are additional args\
-               \ to pass on to cabal2nix; use -- to precede any options"))
+    (Add
+     <$> switch "github" 'g'
+     "Save github json describing the package git repo instead of a nix expr.\
+     \ TARGET is required to be <username/project>. If an additional\
+     \ argument is given, it is treated as the git revision to be downloaded"
+     <*> argText "target"
+     "The target package. Unless the --github flag is specified, this\
+     \ is any target url that the cabal2nix command understand."
+     <*> many (argText "additional args"
+                "Unless --github is specified, these are additional args\
+                \ to pass on to cabal2nix; use -- to precede any options"))
   )
   <*>
    optional (
@@ -153,7 +155,7 @@ runCmd (Add {_asJson, _target, _args}, wd)
       Nothing    -> inOtherCwd wd $ saveNixExpr _target _args
       Just pkgId -> inOtherCwd wd $ saveFromPkgId pkgId _args
 
-runCmd (Fetch {_target, _revision, _hash}, wd) =
+runCmd (Fetch {_target, _subpath, _revision, _hash}, wd) =
   let
     fpLine = maybe "" id . textToLine . format fp
     matchRoot = Turtle.text . (flip (<>) "/") . format fp
@@ -170,19 +172,21 @@ runCmd (Fetch {_target, _revision, _hash}, wd) =
     authPath u a = "nix" </>
                    (fromString $ uriRegName a) </>
                    (fromString $ tail $ uriPath u)
+    appendSubpath d = Just $ maybe d ((</>) d) _subpath
   in
     case ((parseURI $ Text.unpack _target) >>= fetchPathOf) of
       Nothing -> die $ format ("not a valid target uri: "%s%"") _target
-      (Just path) -> do
+      (Just dst) -> do
         cwd <- pwd
-        let dst = (maybe cwd id wd) </> path
+        let dst' = (maybe cwd id wd) </> dst
         sh $ do
-          tmp <- using  (mktempdir "/tmp" "hozfetch")
+          tmp <- using (mktempdir "/tmp" "hozfetch")
           sh $ saveRemoteRepo tmp _target _revision _hash
-          overridez <- fold (grepOverridez tmp) Foldl.list
+          let src = maybe tmp (flip (</>) tmp) _subpath
+          overridez <- fold (grepOverridez src) Foldl.list
           case overridez of
             [] -> die $ format ("no config found at "%s%"") _target
-            _  -> cpTo dst tmp $ (fromText . lineToText) <$> select overridez
+            _  -> cpTo dst' src $ (fromText . lineToText) <$> select overridez
 
 setAllHashesMsg :: Text -> Text
 setAllHashesMsg name =

@@ -9,14 +9,14 @@ test() {
 
     # set up the HOZ_TEST_CMD to point at the haskell-overridez built by
     # the nix-build
+    local test_descs=()
+    local skipped_descs=()
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir
     nix-build release.nix
     export HOZ_TEST_CMD=$(pwd)/result/bin/haskell-overridez
     popd
 
-    local test_descs=()
-    local skipped_descs=()
     fixture_dir=$this_dir/fixtures
     local test_dirs="$@"
     [[ $# == 0 ]] && test_dirs=$(ls $fixture_dir)
