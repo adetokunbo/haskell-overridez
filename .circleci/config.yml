@@ -15,6 +15,14 @@ aliases: &build
         name: install nixpkgs
         command: curl https://nixos.org/nix/install | sh
 
+    # Restore /nix to state after running the tests that depends only on
+    # release.nix, which is the file to change if the version nixpkgs that is
+    # pinned ever changes (cf https://circleci.com/docs/2.0/caching/)
+
+    - restore_cache:
+        keys:
+          - nix-cache-v1-{{ arch }}-{{ checksum "release.nix" }}
+
     - run:
         name: install test dependencies
         command: ./fixtures/install_test_deps.sh
@@ -22,6 +30,13 @@ aliases: &build
     - run:
         name: run the tests
         command: ./test.sh
+
+    # Save /nix to the cache.
+
+    - save_cache:
+        key: nix-cache-v1-{{ arch }}-{{ checksum "release.nix" }}
+        paths:
+          - /nix
 
 jobs:
   build: *build
