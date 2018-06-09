@@ -11,13 +11,22 @@ aliases: &build
   steps:
     - checkout
 
-    # Restore /nix to state after running the tests that depends only on
-    # release.nix, which is the file to change if the version nixpkgs that is
-    # pinned ever changes (cf https://circleci.com/docs/2.0/caching/)
+    - run:
+        name: create a fake /nix
+        command: sudo mkdir -m 0755 /nix && sudo chown circleci /nix
+
+    # Restore the nix installation to state after running the tests
+    # - restore_cache:
+    #     keys:
+    #       - nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
 
     - restore_cache:
         keys:
-          - nix-cache-v1-{{ arch }}-{{ checksum "release.nix" }}
+          - nix-dotnix-v1-{{ arch }}-{{ checksum "release.nix" }}
+
+    - run:
+        name: install nix
+        command: ./fixtures/install_nix.sh
 
     - run:
         name: install test dependencies
@@ -27,12 +36,18 @@ aliases: &build
         name: run the tests
         command: ./test.sh
 
-    # Save /nix to the cache.
+    # Save /nix and the local folders to the cache.
 
     - save_cache:
-        key: nix-cache-v1-{{ arch }}-{{ checksum "release.nix" }}
+        key: nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
         paths:
           - /nix
+
+    - save_cache:
+        key: nix-dotnix-v1-{{ arch }}-{{ checksum "release.nix" }}
+        paths:
+          - ~/.nix-profile
+          - ~/.nix-defexpr
 
 jobs:
   build: *build
