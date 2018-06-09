@@ -15,10 +15,13 @@ aliases: &build
         name: create a fake /nix
         command: sudo mkdir -m 0755 /nix && sudo chown circleci /nix
 
-    # Restore the nix installation to state after running the tests
-    # - restore_cache:
-    #     keys:
-    #       - nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
+    # Restore the nix installation to its state after the previous test run.
+    # This should prevent unnecessary rebuilds of dependencies without impacting
+    # the tests themselves.
+
+    - restore_cache:
+        keys:
+          - nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
 
     - restore_cache:
         keys:
@@ -26,17 +29,21 @@ aliases: &build
 
     - run:
         name: install nix
-        command: ./fixtures/install_nix.sh
+        command: |
+          [[ -d ~/.nix-defexpr ]] ||
+          curl https://nixos.org/nix/install | sh
 
     - run:
-        name: install test dependencies
-        command: ./fixtures/install_test_deps.sh
+        name: install nix dependencies used in the test script itself
+        command: |
+          nix-env -i cabal2nix
+          nix-env -i nix-prefetch-git
 
     - run:
         name: run the tests
         command: ./test.sh
 
-    # Save /nix and the local folders to the cache.
+    # Save /nix and the nix user folders to the cache.
 
     - save_cache:
         key: nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
