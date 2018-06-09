@@ -11,10 +11,6 @@ aliases: &build
   steps:
     - checkout
 
-    - run:
-        name: install nixpkgs
-        command: curl https://nixos.org/nix/install | sh
-
     # Restore /nix to state after running the tests that depends only on
     # release.nix, which is the file to change if the version nixpkgs that is
     # pinned ever changes (cf https://circleci.com/docs/2.0/caching/)
