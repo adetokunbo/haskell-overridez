@@ -1,4 +1,4 @@
 let
-  pkgs = import ./nix/17_09.nix;
+  pkgs = import ./nix/18_03.nix;
 in
   import ./. { inherit pkgs; debug=false; }
