@@ -4,6 +4,7 @@ set -euo pipefail
 test() {
     [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set -x
     HOZ_TMP_DIR=$(mktemp -d)
+    local test_desc="test setup"
     trap "rm -fR $HOZ_TMP_DIR" INT TERM EXIT
     trap 'echo "FAILED: $test_desc"; return 1' ERR
 
