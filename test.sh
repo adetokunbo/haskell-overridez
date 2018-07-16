@@ -3,6 +3,7 @@ set -euo pipefail
 
 test() {
     [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set -x
+    set -x
     HOZ_TMP_DIR=$(mktemp -d)
     local test_desc="test setup"
     trap "rm -fR $HOZ_TMP_DIR" INT TERM EXIT
@@ -14,7 +15,7 @@ test() {
     local skipped_descs=()
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir
-    nix-build release.nix
+    nix-build --show-trace release.nix
     export HOZ_TEST_CMD=$(pwd)/result/bin/haskell-overridez
     popd
 
