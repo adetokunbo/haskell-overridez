@@ -8,7 +8,8 @@ let
      };
    })
   ];
-  pkgs = import <nixpkgs> { inherit overlays; };
+  nixpkgs = import ./nix/18_03.nix;
+  pkgs = import nixpkgs { inherit overlays; };
 in
  {
   inherit (pkgs.haskellPackages) haskell-overridez;

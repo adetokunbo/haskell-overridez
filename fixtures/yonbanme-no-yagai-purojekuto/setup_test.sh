@@ -16,8 +16,8 @@ setup_test() {
                      --builder \
                      --leave-dotGit \
                      https://github.com/adetokunbo/example-fetched-haskell-overridez \
-                     46f4f2197ee9b59091d6bbe30a47a74772806b61 \
-                     0w3jqim7xnrs2fg3cg60sm8k9i8fr8r1lwlwglmrmwqfbxzfxxx3
+                     bf8ec35e984fa0acf930bc5a39299cfc1079a761 \
+                     12fynjncjjgi20jksmblq3pcrnhhwrdi2cajh7brhr7bsx87dssm
     ls -l $out_dir
 
     # Make a directory under the tmp root in which to save the output

@@ -5,7 +5,6 @@ test() {
     [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set -x
     HOZ_TMP_DIR=$(mktemp -d)
     trap "rm -fR $HOZ_TMP_DIR" INT TERM EXIT
-    trap 'echo "FAILED: $test_desc"; return 1' ERR
 
     # set up the HOZ_TEST_CMD to point at the haskell-overridez built by
     # the nix-build
@@ -13,7 +12,7 @@ test() {
     local skipped_descs=()
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir
-    nix-build release.nix
+    nix-build --show-trace release.nix
     export HOZ_TEST_CMD=$(pwd)/result/bin/haskell-overridez
     popd
 
