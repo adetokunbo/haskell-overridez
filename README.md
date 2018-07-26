@@ -35,7 +35,7 @@ $ cd my-nix-project
 $ haskell-overridez -g reflex-frp/reflex-dom-contrib
 
 # install an override using cabal2nix
-$ haskell-overridez https://github.com/tathougies/beam --subpath beam-core
+$ haskell-overridez https://github.com/tathougies/beam -- --subpath beam-core
 ```
 
 There are various options for managing the overrides; to see them all, you can read the help message:
