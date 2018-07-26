@@ -1,17 +1,15 @@
-cabal-version: 2.0
-name:          haskell-overridez
-synopsis:      Manage nix overrides for haskell packages
-version:       0.10.2.0
-license:       BSD3
-license-file:  LICENSE
-build-type:    Simple
-author:        Tim Emiola
-maintainer:    tim.emiola@gmail.com
-description:   A tool to simplify the use of nix overrides during haskell development
-category:      Distribution,nix
-
-extra-source-files:
-  README.md
+name:               haskell-overridez
+version:            0.10.2.0
+synopsis:           Manage nix overrides for haskell packages
+description:        A tool to simplify the use of nix overrides during haskell development
+license:            BSD3
+license-file:       LICENSE
+author:             Tim Emiola
+maintainer:         tim.emiola@gmail.com
+category:           Distribution,nix
+build-type:         Simple
+extra-source-files: README.md
+cabal-version:      2.0
 
 source-repository head
   type:     git
@@ -19,11 +17,11 @@ source-repository head
 
 executable haskell-overridez
   main-is:          Main.hs
-  hs-source-dirs:   exe
-  default-language: Haskell2010
-  autogen-modules:  Paths_haskell_overridez
   other-modules:    Paths_haskell_overridez
+  autogen-modules:  Paths_haskell_overridez
+  hs-source-dirs:   exe
   build-depends:    base                 >= 4.2 && < 5
+                  , Cabal                >= 2.2.0.1
                   , aeson                >= 1.2.4.0
                   , aeson-casing         >= 0.1 && < 0.3
                   , attoparsec           >= 0.13.2 && < 0.15
@@ -34,8 +32,8 @@ executable haskell-overridez
                   , neat-interpolation   >= 0.3.2 && < 0.5
                   , network-uri          >= 2.6.1.0 && < 2.8
                   , optparse-applicative >= 0.14.2 && < 0.16
-                  , system-filepath      == 0.4.14
                   , system-fileio        == 0.3.16.3
+                  , system-filepath      == 0.4.14
                   , text                 >= 1.2.3 && < 1.3
                   , turtle               >= 1.5.7 && < 1.5.10
-                  , Cabal                >= 2.2.0.1
+  default-language: Haskell2010
