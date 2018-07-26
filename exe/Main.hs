@@ -439,7 +439,7 @@ jsonValue :: Shell Text -> Shell Aeson.Value
 jsonValue s = Shell _foldIO'
   where
     _foldIO' (FoldShell step begin done) = foldIO s
-        (Foldl.premapM Text.encodeUtf8 (FoldM step' begin' done'))
+        (Foldl.premapM (return . Text.encodeUtf8) (FoldM step' begin' done'))
       where
         step' (x, r) bs = case A.feed r bs of
           A.Fail leftover _ _ ->
