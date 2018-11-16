@@ -1,37 +1,22 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE EmptyDataDecls             #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImpredicativeTypes         #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
 
 module Main where
 
-import           Data.Text
-import           Database.Beam
-import           GHC.Generics
-
-data UserT f
-  = User
-  { _userName        :: Columnar f Text
-  } deriving (Generic)
-
-type User = UserT Identity
-
-deriving instance Show User
-deriving instance Eq User
-
-me :: User
-me = User "Me"
+import           Control.Monad.Log
+import           Data.Text.Prettyprint.Doc (Doc)
+import           System.IO (stdout)
 
 main :: IO ()
-main = putStrLn $ show me
+main =
+  withFDHandler defaultBatchingOptions stdout 0.4 80 $ \logToStdout ->
+  runLoggingT testApp (logToStdout . renderWithSeverity id)
+
+
+testApp :: MonadLog (WithSeverity (Doc ann)) m => m ()
+testApp = do
+  logMessage (WithSeverity Informational "Don't mind me")
+  logMessage (WithSeverity Error "But do mind me!")
