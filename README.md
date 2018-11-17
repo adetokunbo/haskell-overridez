@@ -16,7 +16,7 @@ You can then install `haskell-overridez` using `nix-env`:
 
 ```bash
 
-nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/v0.10.3.0.tar.gz
+nix-env --install -f https://github.com/adetokunbo/haskell-overridez/archive/v0.10.3.1.tar.gz
 
 ```
 

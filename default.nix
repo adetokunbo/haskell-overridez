@@ -8,7 +8,7 @@ let
      };
    })
   ];
-  nixpkgs = import ./nix/18_03.nix;
+  nixpkgs = import ./nix/18_09.nix;
   pkgs = import nixpkgs { inherit overlays; };
 in
  {

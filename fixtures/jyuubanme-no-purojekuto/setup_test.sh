@@ -9,7 +9,7 @@ setup_test() {
     $HOZ_TEST_CMD cabal://optparse-applicative-0.14.2.0
 
     export HOZ_OPTS=doJailbreak:dontHaddock
-    $HOZ_TEST_CMD cabal://foldl-1.3.7
+    $HOZ_TEST_CMD cabal://foldl-1.4.5
 
     export HOZ_OPTS=doJailbreak:dontCheck:dontHaddock
     $HOZ_TEST_CMD -g Gabriel439/Haskell-Turtle-Library
