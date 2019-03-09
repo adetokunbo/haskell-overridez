@@ -5,13 +5,12 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
-module Main where
+module Main (main) where
 
-import           Control.Exception            (SomeException, catch)
-import           Control.Monad                (join)
+import           Control.Monad                (join, void)
 import           Control.Monad.Catch          (MonadMask, bracket)
+import           Data.Bifunctor               (first)
 
-import           Data.Either                  (lefts, rights)
 import           Data.Function                (on)
 import           Data.List.NonEmpty           (toList)
 import           Data.Maybe                   (catMaybes, listToMaybe)
@@ -20,7 +19,7 @@ import qualified Data.Text                    as Text
 import           Data.Version                 (showVersion)
 import           GHC.Generics
 import           Paths_haskell_overridez      (version)
-import           Prelude                      hiding (FilePath, empty)
+import           Prelude                      hiding (FilePath)
 
 import           Control.Monad.Managed        (managed, runManaged)
 import qualified Data.Aeson                   as Aeson
@@ -32,11 +31,9 @@ import           Network.URI                  (URI (..), parseURI, uriRegName)
 import qualified Options.Applicative          as Options
 import           Turtle                       hiding (text)
 import qualified Turtle                       (text)
-import           Turtle.Line
 
 -- Imports that allow the implementation of the json methods
-import           Control.Foldl                (Fold, FoldM (..), genericLength,
-                                               handles, list, premap)
+import           Control.Foldl                (Fold, FoldM (..))
 import qualified Control.Foldl                as Foldl
 import qualified Data.Aeson.Parser            as Aeson
 import qualified Data.Attoparsec.ByteString   as A
@@ -61,9 +58,10 @@ data Options
   | List         -- ^ List the current overrides
   | Initialize   -- ^ Initialize (or re-initialize) a project using overrides
   | Add          -- ^ Add an override
-    { _asJson :: Bool   -- ^ Save it as github json
-    , _target :: Text   -- ^ Name of the target override
-    , _args   :: [Text] -- ^ Additional args for the downloading the target
+    { _asJson    :: Bool       -- ^ Save it as github json
+    , _target    :: Text       -- ^ Name of the target override
+    , _args      :: [Text]     -- ^ Additional args for the downloading the target
+    , _cabalOpts :: [CabalOpt] -- ^ Cabal option override
     } deriving Show
 
 
@@ -73,7 +71,7 @@ cmdlineWithVersion =
   (showVersion version)
   (Options.long "version"
     <> Options.short 'v'
-    <> Options.help "Show version number")
+    <> Options.help "Show the version of haskell-overridez")
   <*> cmdlineParser
 
 cmdlineParser :: Parser (Options, Maybe FilePath)
@@ -100,8 +98,8 @@ cmdlineParser
       "Reinitialize the project. This adds the file \
       \ `nix/haskell-overridez.nix` to the project if it is not present\
       \ or updates it to reflect the current version of\
-      \ haskell overiddez. This file simplifies the\
-      \ import of the haskell-override nixpkgs functions")
+      \ haskell-overiddez. This file simplifies the\
+      \ import of the haskell-overridez nixpkgs functions")
   <|>
     (Add
      <$> switch "github" 'g'
@@ -114,6 +112,12 @@ cmdlineParser
      <*> many (argText "additional args"
                 "Unless --github is specified, these are additional args\
                 \ to pass on to cabal2nix; use -- to precede any options"))
+     <*> many (Options.option Options.auto (
+                  Options.long "flag-override"
+                  <> Options.metavar "FLAG_OVERRIDES"
+                  <> Options.help
+                  "Cabal flag overrides to include in the package override\
+                  \ specification  "))
   )
   <*>
    optional (
@@ -135,8 +139,7 @@ mainSummary :: Description
 mainSummary =
   "Adds override files to the nix subdirectory of a project\n\n\
   \The files are either the 'prefetch' json or the nix expression\n\
-  \output of cabal2nix describing the target haskell package.\
-  \\n\n\
+  \output of cabal2nix describing the target haskell package.\  \\n\n\
   \These files are used by the functions of the accompanying\n\
   \nix-expr library to create an override function that\n\
   \combines all the specified overrides."
@@ -149,30 +152,29 @@ runCmd (List, wd) = inOtherCwd wd $ listOverrides
 runCmd ((Delete p), wd) = inOtherCwd wd $ removePackage p
 runCmd (Initialize, wd) = inOtherCwd wd $ initializeProject True
 
-runCmd (Add {_asJson, _target, _args}, wd)
-  | _asJson = inOtherCwd wd $ saveGitJson _target _args
+runCmd (Add {_asJson, _target, _args, _cabalOpts}, wd)
+  | _asJson = inOtherCwd wd $ saveGitJson _target _args _cabalOpts
   | otherwise = case parsePkgId _target of
-      Nothing    -> inOtherCwd wd $ saveNixExpr _target _args
-      Just pkgId -> inOtherCwd wd $ saveFromPkgId pkgId _args
+      Nothing    -> inOtherCwd wd $ saveNixExpr _target _args _cabalOpts
+      Just pkgId -> inOtherCwd wd $ saveFromPkgId pkgId _args _cabalOpts
 
 runCmd (Fetch {_target, _subpath, _revision, _hash}, wd) =
   let
     fpLine = maybe "" id . textToLine . format fp
     matchRoot = Turtle.text . (flip (<>) "/") . format fp
-    dropRoot d = sed (matchRoot d *> return "")
-    grepOverridez d = dropRoot d $ grep allOverridezPat $ fpLine <$> lstree d
-    fromString = fromText . Text.pack
-    fetchPathOf u =
-      if (uriScheme u) == "file:"
-      then fileURIPath u
-      else authPath u <$> uriAuthority u
-    fileURIPath u = Just $ "nix" </>
-                    "localhost" </>
-                    (filename $ fromString $ uriPath u)
-    authPath u a = "nix" </>
-                   (fromString $ uriRegName a) </>
-                   (fromString $ tail $ uriPath u)
-    appendSubpath d = Just $ maybe d ((</>) d) _subpath
+    dropRoot dir = sed (matchRoot dir *> return "")
+    grepOverridez dir = dropRoot dir
+      $ grep allOverridezPat $ fpLine <$> lstree dir
+    fromTextStr = fromText . Text.pack
+    fetchPathOf aUrl
+      | uriScheme aUrl == "file:" = fileURIPath aUrl
+      | otherwise = authPath aUrl <$> uriAuthority aUrl
+    fileURIPath aUrl =
+      Just $ "nix" </> "localhost" </> (filename $ fromTextStr $ uriPath aUrl)
+    authPath aUrl a = "nix" </>
+                   (fromTextStr $ uriRegName a) </>
+                   (fromTextStr $ tail $ uriPath aUrl)
+    -- appendSubpath dir = Just $ maybe dir ((</>) dir) _subpath
   in
     case ((parseURI $ Text.unpack _target) >>= fetchPathOf) of
       Nothing -> die $ format ("not a valid target uri: "%s%"") _target
@@ -183,66 +185,68 @@ runCmd (Fetch {_target, _subpath, _revision, _hash}, wd) =
           tmp <- using (mktempdir "/tmp" "hozfetch")
           sh $ saveRemoteRepo tmp _target _revision _hash
           let src = maybe tmp (flip (</>) tmp) _subpath
-          overridez <- fold (grepOverridez src) Foldl.list
-          case overridez of
+          fold (grepOverridez src) Foldl.list >>= \case
             [] -> die $ format ("no config found at "%s%"") _target
-            _  -> cpTo dst' src $ (fromText . lineToText) <$> select overridez
+            zs -> cpTo dst' src $ (fromText . lineToText) <$> select zs
 
 setAllHashesMsg :: Text -> Text
 setAllHashesMsg name =
   format ("\nCannot handle "%s%"\n") name
   <> format (" Please set the environment variable "%s%"") allHashesEnv
-  <> ".\nThis should be the path to a nix data derivation containing\
+  <> ".\n This should be the path to a nix data derivation containing\
      \ the hashes and cabal files for all packages on hackage.\n Its\
-     \ contents are required to correctly resolve cabal:// urls."
+     \ contents are required to correctly resolve cabal:// urls. \
+     \ When haskell-overridez is installed using nix, this environment\
+     \ variable is set automatically.\n"
 
 -- | Save a nix expression file for a package specified by its 'PackageIdentifier'.
-saveFromPkgId :: PackageIdentifier -> [Text] -> IO ()
-saveFromPkgId pkgId extraArgs =  do
-  allHashes <- lookupEnv allHashesEnv
-  case allHashes of
-    Nothing -> die $ setAllHashesMsg $ prettyShow' pkgId
-    Just allHashes' -> do
-      pkg <- findPackage pkgId $ inproc "tar" ["tzvf", allHashes'] empty
-      cwd <- pwd
-      runManaged $ do
-        untarDir <- using (mktempdir cwd "hoz-untar")
-        cwd <- managed (withOtherCwd $ Just untarDir)
-        procs "tar" ["xvf", allHashes', pkg] empty
+saveFromPkgId :: PackageIdentifier -> [Text] -> [CabalOpt] -> IO ()
+saveFromPkgId pkgId extraArgs cabalOpts =  do
+  let whenAllHashes = flip $ maybe $ die $ setAllHashesMsg $ prettyShow' pkgId
+  hs <- lookupEnv allHashesEnv
+  whenAllHashes hs $ \allHashes' -> do
+    pkg <- findPackage pkgId $ inproc "tar" ["tzvf", allHashes'] empty
+    cwd <- pwd
+    runManaged $ do
+      untarDir <- using (mktempdir cwd "hoz-untar")
+      cwd' <- managed (withOtherCwd $ Just untarDir)
+      procs "tar" ["xvf", allHashes', pkg] empty
 
-        -- needed because cabal2nix examines a cache in $HOME for local
-        -- packages, when run from a nix-shell this breaks as $HOME is reset to
-        -- a non-existent directory
-        export "HOME" $ format fp untarDir
+      -- needed because cabal2nix examines a cache in $HOME for local
+      -- packages, when run from a nix-shell this breaks as $HOME is reset to
+      -- a directory that does not exist
+      export "HOME" $ format fp untarDir
 
-        _ <- managed (withOtherCwd $ Just cwd)
-        saveNixExpr (format fp untarDir <> "/" <> pkg) extraArgs
+      _ <- managed (withOtherCwd $ Just cwd')
+      saveNixExpr (format fp untarDir <> "/" <> pkg) extraArgs cabalOpts
+
 
 -- | Save a nix expression file in the current project by shelling out to
 -- cabal2nix.
-saveNixExpr :: MonadIO io => Text -> [Text] -> io ()
-saveNixExpr url extraArgs = do
+saveNixExpr :: MonadIO io => Text -> [Text] -> [CabalOpt] -> io ()
+saveNixExpr url extraArgs cabalOpts = do
   let findPname = findNixField "pname"
       shCmd = lineToText <$> inproc "cabal2nix" ([url] <> extraArgs) empty
-  (mbPackage, lines) <- fold shCmd findPname
+  (mbPackage, lines_) <- fold shCmd findPname
   case mbPackage of
     Nothing ->
       die $ format ("could not find a package name in the output of"%s%"") url
     (Just p) -> do
       let dstText = format ("nix/nix-expr/"%s%".nix") p
           dst = fromText dstText
-      mktree (directory dst) >> (output dst $ shTextToLines $ select lines)
+      mktree (directory dst)
+      output dst $ shTextToLines $ select lines_
       initializeProject False
-      addConfiguredOptions $ unsafeTextToLine p
+      addConfiguredOptions cabalOpts $ unsafeTextToLine p
       cwd <- format fp <$> pwd
       printf ("saved nix-expr for "%s%" to "%s%" in "%s%"\n") p dstText cwd
 
 -- | Save a package as a JSON descriptor of its github repository.
-saveGitJson :: MonadIO io => Text -> [Text] -> io ()
-saveGitJson userRepo []  = saveGitJson userRepo [""]
-saveGitJson userRepo (revision:xs) = do
+saveGitJson :: MonadIO io => Text -> [Text] -> [CabalOpt] -> io ()
+saveGitJson userRepo [] cabalOpts = saveGitJson userRepo [""] cabalOpts
+saveGitJson userRepo (revision : _xs) cabalOpts = do
   let target = format ("https://github.com/"%s%".git") userRepo
-      just s = if s == "" then Nothing else Just s
+      just z = if z == "" then Nothing else Just z
       defPkgName = snd $ Text.breakOnEnd "/" userRepo
   liftIO $ runManaged $ do
     tmp <- using (mktempdir "/tmp" "hoz-json")
@@ -250,8 +254,9 @@ saveGitJson userRepo (revision:xs) = do
     pkgName <- pkgNameOrDef tmp defPkgName
     let dstText = format ("nix/git-json/"%s%".json") pkgName
         dst = fromText dstText
-    mktree (directory dst) >> cp (tmp <> githubJsonPath) dst
-    addConfiguredOptions $ unsafeTextToLine pkgName
+    mktree (directory dst)
+    cp (tmp <> githubJsonPath) dst
+    addConfiguredOptions cabalOpts $ unsafeTextToLine pkgName
     initializeProject False
     cwd <- format fp <$> pwd
     printf ("saved git json for "%s%" to "%s%" in "%s%"\n") pkgName dstText cwd
@@ -272,7 +277,7 @@ pkgNameOrDef dir def = do
         echo "*warning* Files examined are:"
         view $ format fp <$> ls dir
       return def
-    (Just pkg) -> return pkg
+    Just pkg -> return pkg
 
 -- | Determine the package name by examining the default.nix file in the project
 -- directory if that is present.
@@ -282,9 +287,7 @@ pkgNameFromNix projDir = do
       findPname = findNixField "pname"
   liftIO $ testfile nixPath >>= \case
     False -> return Nothing
-    True -> do
-      (mbPackage, _) <- fold (lineToText <$> input nixPath) findPname
-      return mbPackage
+    True -> fst <$> fold (lineToText <$> input nixPath) findPname
 
 -- | Determine the package name by examining the cabal file in the project
 -- directory if that is present.
@@ -293,12 +296,12 @@ pkgNameFromCabal projDir = do
   let fs = grepText (suffix ".cabal") (format fp <$> ls projDir)
       names = sed findName $ grep findName $ join $ (input . fromText) <$> fs
       findName = do
-        "name:" <|> "Name:"
-        spaces1
+        void $ "name:" <|> "Name:"
+        void $ spaces1
         name <- plus anyChar
         return name
   fold names Foldl.list >>= \case
-    [x] -> return $ Just $ lineToText x
+    [z] -> return $ Just $ lineToText z
     _   -> return Nothing
 
 -- | Initialize the current project.
@@ -311,32 +314,32 @@ initializeProject always = do
     output loaderPath $ select $ textToLines nixExp
 
 -- | Add any configured options for a package.
-addConfiguredOptions :: MonadIO io => Line -> io ()
-addConfiguredOptions pkgName =
-  lookupCabalOpts >>= mapM_ (addLine pkgName . configPath)
+addConfiguredOptions :: MonadIO io => [CabalOpt] -> Line -> io ()
+addConfiguredOptions cabalOpts pkgName =
+  mapM_ (addLine pkgName . configPath) cabalOpts
 
 -- | Remove the override configuration for a package from the current project.
 removePackage :: Text -> IO ()
 removePackage package = do
   let nixExpr = fromText $ "nix/nix-expr/" <> package <> ".nix"
-      json = fromText $ "nix/git-json/" <> package <> ".json"
-      rmWhenPresent f = testfile f >>= (flip when $ rm f)
+      gitJson = fromText $ "nix/git-json/" <> package <> ".json"
+      rmWhenPresent f' = testfile f' >>= (flip when $ rm f')
       rmFromFile = removeLine package
   rmWhenPresent nixExpr
-  rmWhenPresent json
-  mapM_ (rmFromFile . configPath) knownCabalOpts
+  rmWhenPresent gitJson
+  mapM_ (rmFromFile . configPath) [minBound .. maxBound]
 
 -- | List the overrides configured in the current project.
 listOverrides :: IO ()
 listOverrides = do
   let dropExt ext = sedSuffix $ ext *> ""
       matchRoot = Turtle.text . (flip (<>) "/") . format fp
-      dropRoot d = sed (matchRoot d *> return "")
+      dropRoot dir = sed (matchRoot dir *> return "")
       fpLine = maybe "" id . textToLine . format fp
-      lsNoPrefix d = dropRoot d $ fpLine <$> ls d
-      list' title d ext = do
-        exists <- testdir d
-        when exists $ stdout $ title <|> "" <|> (dropExt ext $ lsNoPrefix d)
+      lsNoPrefix dir = dropRoot dir $ fpLine <$> ls dir
+      list' title dir ext = do
+        exists <- testdir dir
+        when exists $ stdout $ title <|> "" <|> (dropExt ext $ lsNoPrefix dir)
   list' "Nix exprs" "nix/nix-expr" ".nix"
   stdout (return "")
   list' "Github json" "nix/git-json" ".json"
@@ -351,10 +354,10 @@ withOtherCwd
 withOtherCwd Nothing    action = pwd >>= action
 withOtherCwd (Just dst) action =
   let
-    switchd = pwd >>= (\d -> cd dst >> showDir dst >> return d)
+    switchd = pwd >>= (\cwd -> cd dst >> showDir dst >> return cwd)
     showDir = printf ("working dir is now "%fp%"\n")
   in
-    bracket (liftIO switchd) (\d -> liftIO $ cd d) action
+    bracket (liftIO switchd) (liftIO . cd) action
 
 -- | Change the current working directory while performing an action.
 inOtherCwd :: (MonadIO io, MonadMask io) => Maybe FilePath -> io a -> io a
@@ -376,17 +379,18 @@ saveRemoteRepo dst target (Just rev) (Just hash) = do
     , hash
     ] empty
 
-saveRemoteRepo dst target Nothing Nothing =
-  saveRemoteRepo dst target (Just "") Nothing
-
 saveRemoteRepo dst target (Just rev) Nothing = do
   let jsonOut = dst <> githubJsonPath
   output jsonOut $ inproc "nix-prefetch-git" [ target , rev ] empty
   info <- liftIO $ json $ lineToText <$> input jsonOut
   saveRemoteRepo dst target (Just $ _pfRev info) (Just $ _pfSha256 info)
 
+saveRemoteRepo dst target _ _ =
+  saveRemoteRepo dst target (Just "") Nothing
+
+
 findPackage :: PackageIdentifier -> Shell Line -> IO Text
-findPackage pkgId@PackageIdentifier{pkgName, pkgVersion} lines = do
+findPackage pkgId@PackageIdentifier{pkgName, pkgVersion} xs = do
   maxVersion <- fold withVersions $ Foldl.maximumBy (compare `on` snd)
   case maxVersion of
     Nothing           -> die $ missingErr $ prettyShow' pkgId
@@ -399,25 +403,25 @@ findPackage pkgId@PackageIdentifier{pkgName, pkgVersion} lines = do
       = (fmap pairWithVersion)
       . (fmap lineToText)
       . sed baseName
-      $ grepPkg lines
+      $ grepPkg xs
     grepPkg = grep $ has $ Turtle.text search
 
-    pairWithVersion x = (x, listToMaybe $ catMaybes $ match extractVersion x)
+    pairWithVersion z = (z, listToMaybe $ catMaybes $ match extractVersion z)
     extractVersion = do
-      "all-cabal-hashes-" >> (selfless $ plus $ noneOf "/")
-      "/"
+      void $ "all-cabal-hashes-" >> (selfless $ plus $ noneOf "/")
+      void $ "/"
       pname <- selfless $ plus $ noneOf "/"
-      "/"
+      void $ "/"
       pversion <- selfless $ plus $ noneOf "/"
-      "/"
-      base <- selfless $ star anyChar
+      void $ "/"
+      void $ selfless $ star anyChar
       return $ parseVersion $ format (""%s%"-"%s%"") pname pversion
 
     baseName = do
-      selfless $ star anyChar
+      void $ selfless $ star anyChar
       start <- "all-cabal-hashes-"
       rest <- star anyChar
-      return $ start <> rest
+      pure $ start <> rest
 
     search = if pkgVersion == nullVersion
              then format ("/"%s%".cabal") name'
@@ -436,26 +440,26 @@ Number 1.0
 Array []
 -}
 jsonValue :: Shell Text -> Shell Aeson.Value
-jsonValue s = Shell _foldIO'
+jsonValue someText = Shell _foldIO'
   where
-    _foldIO' (FoldShell step begin done) = foldIO s
+    _foldIO' (FoldShell step begin done) = foldIO someText
         (Foldl.premapM (return . Text.encodeUtf8) (FoldM step' begin' done'))
       where
-        step' (x, r) bs = case A.feed r bs of
+        step' (z, r) bs = case A.feed r bs of
           A.Fail leftover _ _ ->
-            step' (x, r0) (ByteString.drop 1 leftover)
-          r'@(A.Partial {}) -> return (x, r')
+            step' (z, r0) (ByteString.drop 1 leftover)
+          r'@(A.Partial {}) -> return (z, r')
           r'@(A.Done leftover val) -> do
-            x' <- step x val
+            z' <- step z val
             if ByteString.null leftover
-              then return (x', r')
-              else step' (x', r0) leftover
+              then return (z', r')
+              else step' (z', r0) leftover
         begin' = return (begin, r0)
-        done' (x, r) = case r of
+        done' (z, r) = case r of
           A.Partial {} -> do
-            (x', _) <- step' (x, r) ""
-            done x'
-          _ -> done x
+            (z', _) <- step' (z, r) ""
+            done z'
+          _ -> done z
         r0 = A.Partial (A.parse Aeson.value)
 
 -- | Parses data directly from a 'Shell' 'Text'.
@@ -467,20 +471,21 @@ json someText = singleJson someText >>= checkResult
     singleJson = single . (fmap Aeson.fromJSON) . jsonValue
     checkResult = \case
       (Aeson.Success a) -> return a
-      (Aeson.Error err) -> do
+      (Aeson.Error badParse) -> do
         let msg = format ("json': parse failed: "%s%"") errText
-            errText = Text.pack err
+            errText = Text.pack badParse
         die msg
 
 -- | Copy all the relative paths specified by targets under root to the
 -- destination.
 cpTo :: MonadIO io => FilePath -> FilePath -> Shell FilePath -> io ()
-cpTo dst root targets = sh $ do
+cpTo dst dstRoot targets = sh $ do
   t <- targets
   let newt = fromText $ Text.replace "nix/" "" $ format fp t
       newPath = dst </> newt
-      oldPath = root </> t
-  mktree (directory newPath) >> cp oldPath newPath
+      oldPath = dstRoot </> t
+  mktree (directory newPath)
+  cp oldPath newPath
   liftIO $ printf ("copied "%fp%" to "%fp%"\n") oldPath newPath
 
 -- | Creates a 'Fold' which searches some 'Text' for a nix field with the given
@@ -490,24 +495,24 @@ findNixField name = (,) <$> findNixField' <*> Foldl.list
   where
     findNixField' = Fold foldFunc Nothing id
     foldFunc = mkStepFunc $ nixField name
-    mkStepFunc f = f'
-      where f' Nothing x = f x
+    mkStepFunc origF = f'
+      where f' Nothing z = origF z
             f' y _       = y
-    nixField name from =
+    nixField nm nms =
       let findValue = do
-            spaces1
-            Turtle.text name
-            " = \""
+            void $ spaces1
+            void $ Turtle.text nm
+            void " = \""
             value <- selfless (plus (noneOf "\""))
-            "\""
+            void $ "\""
             return value
-      in listToMaybe $ match (prefix findValue) from
+      in listToMaybe $ match (prefix findValue) nms
 
 -- | Attempts to parse the input as a cabal uri: cabal://<pkg-id>.
 parsePkgId :: Text -> Maybe PackageIdentifier
 parsePkgId uri =
   let findPkgId = do
-        "cabal://"
+        void $ "cabal://"
         pkgId <- (star anyChar)
         return $ simpleParse' pkgId
   in join $ listToMaybe $ match (findPkgId) uri
@@ -518,69 +523,46 @@ allOverridezPat :: Pattern Text
 allOverridezPat = Foldl.fold (Fold (<|>) empty id)
   ([ suffix ("nix/nix-expr/" <> notSlashes <> ".nix")
    , suffix ("nix/git-json/" <> notSlashes <> ".json")
-   ] <> map (suffix . Turtle.text . optPath) knownCabalOpts)
+   ] <> map (suffix . Turtle.text . optionsPath) knownCabalOpts)
   where
-    optPath = ((<>) "nix/options/") . Text.pack . show
+    optionsPath = ((<>) "nix/options/") . firstLower . Text.pack . show
     notSlashes = selfless (plus (noneOf "/"))
 
--- | Determine what cabal option overrides should be set from the environment
--- variable HOZ_OPTS.
-lookupCabalOpts :: MonadIO io => io ([CabalOpt])
-lookupCabalOpts = lookupEnv cabalOptionsEnv >>= \case
-  Nothing -> return []
-  (Just raw) -> do
-    let matches = listToMaybe $ match (parseCabalOpt `sepBy` ":") raw
-    case matches of
-      Nothing -> return []
-      Just x  -> do
-        mapM_  (printf ("ignored unrecognized option"%s%"")) $ lefts x
-        return $ rights x
-
 -- | The supported cabal option overrides.
-data CabalOpt = DoJailbreak | DontCheck | DontHaddock deriving (Eq)
-
-instance Show CabalOpt where
-  show DoJailbreak = "doJailbreak"
-  show DontCheck   = "dontCheck"
-  show DontHaddock = "dontHaddock"
-
--- | Parse a cabal option from a string.
-parseCabalOpt :: Pattern (Either Text CabalOpt)
-parseCabalOpt
-  = (Turtle.text "doJailbreak" *> (return $ Right DoJailbreak))
-    <|> (Turtle.text "dontCheck" *> (return $ Right DontCheck))
-    <|> (Turtle.text "dontHaddock" *> (return $ Right DontHaddock))
-    <|> (do incorrect <- plus anyChar; return $ Left incorrect)
+data CabalOpt =
+  DoJailbreak
+  | DontCheck
+  | DontHaddock
+  deriving (Eq, Read, Show, Enum, Bounded)
 
 -- | The supported cabal option overrides.
 knownCabalOpts :: [CabalOpt]
-knownCabalOpts = [DoJailbreak, DontCheck, DontHaddock]
+knownCabalOpts = [minBound .. maxBound]
 
--- | Determine the path of the configuration file for a 'CabalOpt'
+-- | Determine the path of the configuration file for a 'CabalOpt'.
 configPath :: CabalOpt -> FilePath
-configPath = fromText . ((<>) "nix/options/") . Text.pack . show
+configPath = fromText . ((<>) "nix/options/") . firstLower . Text.pack . show
 
--- | The paths of all files used to specify which packages use the
--- supported cabal option overrides.
-knownCabalOptPaths :: [FilePath]
-knownCabalOptPaths = map configPath knownCabalOpts
+-- | Lowercase the first character of some text.
+firstLower :: Text -> Text
+firstLower = uncurry (<>) . first Text.toLower . Text.splitAt 1
 
 -- | Remove a line from a file if it is present.
 removeLine :: Text -> FilePath -> IO ()
-removeLine someText f = do
-  exists <- testfile f
+removeLine someText src = do
+  exists <- testfile src
   when exists $ do
-    initial <- fold (input f) Foldl.list
+    initial <- fold (input src) Foldl.list
     let allow = (/=) someText  . lineToText
-    output f $ mfilter allow $ select initial
+    output src $ mfilter allow $ select initial
 
 -- | Add a line to a text file if it is not already present.
 addLine :: MonadIO io => Line -> FilePath -> io ()
-addLine aLine f = liftIO $ testfile f >>= \case
-  False -> mktree (directory f) >> (output f $ return aLine)
+addLine aLine p = liftIO $ testfile p >>= \case
+  False -> mktree (directory p) >> (output p $ return aLine)
   _ -> do
-    initial <- fold (input f) Foldl.list
-    output f $ uniq $ (select initial) <|> return aLine
+    initial <- fold (input p) Foldl.list
+    output p $ uniq $ (select initial) <|> return aLine
 
 shTextToLines :: Shell Text -> Shell Line
 shTextToLines = join . fmap (select . toList . textToLines)
@@ -599,9 +581,6 @@ lookupEnv name = env >>= (return . lookup name)
 
 allHashesEnv :: Text
 allHashesEnv = "HOZ_ALL_CABAL_HASHES"
-
-cabalOptionsEnv :: Text
-cabalOptionsEnv = "HOZ_OPTS"
 
 -- | The path of the haskell-overridez nix-expr library loader.
 loaderPath :: FilePath
@@ -623,12 +602,12 @@ computeLoaderHashCmd = "nix-prefetch-url --unpack " <> archiveUrl
 
 -- | Generate the content of the library loader nix-expr file.
 computeLoaderContent :: Text -> Text -> Text
-computeLoaderContent archiveUrl hash = [text|
+computeLoaderContent tarUrl h = [text|
 let
   pkgs = import <nixpkgs> {};
   overridez = fetchTarball {
-    url = "$archiveUrl";
-    sha256 = "$hash";
+    url = "$tarUrl";
+    sha256 = "$h";
   };
 in
   import overridez { inherit pkgs; }

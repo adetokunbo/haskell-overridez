@@ -3,7 +3,6 @@ set -euo pipefail
 
 setup_wo_options() {
     # Save the configuration without options
-    export HOZ_OPTS=
     $HOZ_TEST_CMD https://github.com/pcapriotti/optparse-applicative
     $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Turtle-Library
     $HOZ_TEST_CMD https://github.com/Gabriel439/Haskell-Foldl-Library
@@ -21,13 +20,10 @@ setup_with_options() {
     mkdir -p $dst_dir
 
     # Save the configuration
-    export HOZ_OPTS=dontCheck
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/pcapriotti/optparse-applicative
-    export HOZ_OPTS=doJailbreak
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
-    export HOZ_OPTS=dontHaddock
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD --flag-override DontCheck -o $dst_dir https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD --flag-override DoJailbreak -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD --flag-override DontHaddock -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD --flag-override DontHaddock -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
 
     (cat <<EOF
 let
