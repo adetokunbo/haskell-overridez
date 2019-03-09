@@ -525,7 +525,7 @@ allOverridezPat = Foldl.fold (Fold (<|>) empty id)
    , suffix ("nix/git-json/" <> notSlashes <> ".json")
    ] <> map (suffix . Turtle.text . optionsPath) knownCabalOpts)
   where
-    optionsPath = ((<>) "nix/options/") . Text.pack . show
+    optionsPath = ((<>) "nix/options/") . firstLower . Text.pack . show
     notSlashes = selfless (plus (noneOf "/"))
 
 -- | The supported cabal option overrides.
@@ -542,8 +542,10 @@ knownCabalOpts = [minBound .. maxBound]
 -- | Determine the path of the configuration file for a 'CabalOpt'.
 configPath :: CabalOpt -> FilePath
 configPath = fromText . ((<>) "nix/options/") . firstLower . Text.pack . show
-  where
-    firstLower = uncurry (<>) . first Text.toLower . Text.splitAt 1
+
+-- | Lowercase the first character of some text.
+firstLower :: Text -> Text
+firstLower = uncurry (<>) . first Text.toLower . Text.splitAt 1
 
 -- | Remove a line from a file if it is present.
 removeLine :: Text -> FilePath -> IO ()

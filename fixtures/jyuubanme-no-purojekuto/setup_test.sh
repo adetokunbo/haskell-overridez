@@ -9,7 +9,9 @@ setup_test() {
 
     $HOZ_TEST_CMD --flag-override DontHaddock cabal://foldl-1.4.5
 
-    $HOZ_TEST_CMD --flag-override DontCheck --flag-override DoJailbreak -g Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD --flag-override DontCheck --flag-override DontHaddock --flag-override DoJailbreak -g Gabriel439/Haskell-Turtle-Library
+
+    $HOZ_TEST_CMD -g Gabriel439/Haskell-Managed-Library
 
     popd > /dev/null
 }
