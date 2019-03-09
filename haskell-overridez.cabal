@@ -11,6 +11,7 @@ homepage:           https://github.com/adetokunbo/haskell-overridez
 bug-reports:        https://github.com/adetokunbo/haskell-overridez/issues
 build-type:         Simple
 extra-source-files: README.md
+                    ChangeLog.md
 cabal-version:      2.0
 
 source-repository head

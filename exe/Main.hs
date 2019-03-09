@@ -5,13 +5,12 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
-module Main where
+module Main (main) where
 
 import           Control.Monad                (join, void)
 import           Control.Monad.Catch          (MonadMask, bracket)
 import           Data.Bifunctor               (first)
 
-import           Data.Either                  (lefts, rights)
 import           Data.Function                (on)
 import           Data.List.NonEmpty           (toList)
 import           Data.Maybe                   (catMaybes, listToMaybe)
@@ -59,9 +58,10 @@ data Options
   | List         -- ^ List the current overrides
   | Initialize   -- ^ Initialize (or re-initialize) a project using overrides
   | Add          -- ^ Add an override
-    { _asJson :: Bool   -- ^ Save it as github json
-    , _target :: Text   -- ^ Name of the target override
-    , _args   :: [Text] -- ^ Additional args for the downloading the target
+    { _asJson    :: Bool       -- ^ Save it as github json
+    , _target    :: Text       -- ^ Name of the target override
+    , _args      :: [Text]     -- ^ Additional args for the downloading the target
+    , _cabalOpts :: [CabalOpt] -- ^ Cabal option override
     } deriving Show
 
 
@@ -112,6 +112,12 @@ cmdlineParser
      <*> many (argText "additional args"
                 "Unless --github is specified, these are additional args\
                 \ to pass on to cabal2nix; use -- to precede any options"))
+     <*> many (Options.option Options.auto (
+                  Options.long "flag-override"
+                  <> Options.metavar "FLAG_OVERRIDES"
+                  <> Options.help
+                  "Cabal flag overrides to include in the package override\
+                  \ specification  "))
   )
   <*>
    optional (
@@ -133,8 +139,7 @@ mainSummary :: Description
 mainSummary =
   "Adds override files to the nix subdirectory of a project\n\n\
   \The files are either the 'prefetch' json or the nix expression\n\
-  \output of cabal2nix describing the target haskell package.\
-  \\n\n\
+  \output of cabal2nix describing the target haskell package.\  \\n\n\
   \These files are used by the functions of the accompanying\n\
   \nix-expr library to create an override function that\n\
   \combines all the specified overrides."
@@ -147,11 +152,11 @@ runCmd (List, wd) = inOtherCwd wd $ listOverrides
 runCmd ((Delete p), wd) = inOtherCwd wd $ removePackage p
 runCmd (Initialize, wd) = inOtherCwd wd $ initializeProject True
 
-runCmd (Add {_asJson, _target, _args}, wd)
-  | _asJson = inOtherCwd wd $ saveGitJson _target _args
+runCmd (Add {_asJson, _target, _args, _cabalOpts}, wd)
+  | _asJson = inOtherCwd wd $ saveGitJson _target _args _cabalOpts
   | otherwise = case parsePkgId _target of
-      Nothing    -> inOtherCwd wd $ saveNixExpr _target _args
-      Just pkgId -> inOtherCwd wd $ saveFromPkgId pkgId _args
+      Nothing    -> inOtherCwd wd $ saveNixExpr _target _args _cabalOpts
+      Just pkgId -> inOtherCwd wd $ saveFromPkgId pkgId _args _cabalOpts
 
 runCmd (Fetch {_target, _subpath, _revision, _hash}, wd) =
   let
@@ -188,13 +193,15 @@ setAllHashesMsg :: Text -> Text
 setAllHashesMsg name =
   format ("\nCannot handle "%s%"\n") name
   <> format (" Please set the environment variable "%s%"") allHashesEnv
-  <> ".\nThis should be the path to a nix data derivation containing\
+  <> ".\n This should be the path to a nix data derivation containing\
      \ the hashes and cabal files for all packages on hackage.\n Its\
-     \ contents are required to correctly resolve cabal:// urls."
+     \ contents are required to correctly resolve cabal:// urls. \
+     \ When haskell-overridez is installed using nix, this environment\
+     \ variable is set automatically.\n"
 
 -- | Save a nix expression file for a package specified by its 'PackageIdentifier'.
-saveFromPkgId :: PackageIdentifier -> [Text] -> IO ()
-saveFromPkgId pkgId extraArgs =  do
+saveFromPkgId :: PackageIdentifier -> [Text] -> [CabalOpt] -> IO ()
+saveFromPkgId pkgId extraArgs cabalOpts =  do
   let whenAllHashes = flip $ maybe $ die $ setAllHashesMsg $ prettyShow' pkgId
   hs <- lookupEnv allHashesEnv
   whenAllHashes hs $ \allHashes' -> do
@@ -211,12 +218,13 @@ saveFromPkgId pkgId extraArgs =  do
       export "HOME" $ format fp untarDir
 
       _ <- managed (withOtherCwd $ Just cwd')
-      saveNixExpr (format fp untarDir <> "/" <> pkg) extraArgs
+      saveNixExpr (format fp untarDir <> "/" <> pkg) extraArgs cabalOpts
+
 
 -- | Save a nix expression file in the current project by shelling out to
 -- cabal2nix.
-saveNixExpr :: MonadIO io => Text -> [Text] -> io ()
-saveNixExpr url extraArgs = do
+saveNixExpr :: MonadIO io => Text -> [Text] -> [CabalOpt] -> io ()
+saveNixExpr url extraArgs cabalOpts = do
   let findPname = findNixField "pname"
       shCmd = lineToText <$> inproc "cabal2nix" ([url] <> extraArgs) empty
   (mbPackage, lines_) <- fold shCmd findPname
@@ -229,14 +237,14 @@ saveNixExpr url extraArgs = do
       mktree (directory dst)
       output dst $ shTextToLines $ select lines_
       initializeProject False
-      addConfiguredOptions $ unsafeTextToLine p
+      addConfiguredOptions cabalOpts $ unsafeTextToLine p
       cwd <- format fp <$> pwd
       printf ("saved nix-expr for "%s%" to "%s%" in "%s%"\n") p dstText cwd
 
 -- | Save a package as a JSON descriptor of its github repository.
-saveGitJson :: MonadIO io => Text -> [Text] -> io ()
-saveGitJson userRepo []  = saveGitJson userRepo [""]
-saveGitJson userRepo (revision : _xs) = do
+saveGitJson :: MonadIO io => Text -> [Text] -> [CabalOpt] -> io ()
+saveGitJson userRepo [] cabalOpts = saveGitJson userRepo [""] cabalOpts
+saveGitJson userRepo (revision : _xs) cabalOpts = do
   let target = format ("https://github.com/"%s%".git") userRepo
       just z = if z == "" then Nothing else Just z
       defPkgName = snd $ Text.breakOnEnd "/" userRepo
@@ -248,7 +256,7 @@ saveGitJson userRepo (revision : _xs) = do
         dst = fromText dstText
     mktree (directory dst)
     cp (tmp <> githubJsonPath) dst
-    addConfiguredOptions $ unsafeTextToLine pkgName
+    addConfiguredOptions cabalOpts $ unsafeTextToLine pkgName
     initializeProject False
     cwd <- format fp <$> pwd
     printf ("saved git json for "%s%" to "%s%" in "%s%"\n") pkgName dstText cwd
@@ -306,9 +314,9 @@ initializeProject always = do
     output loaderPath $ select $ textToLines nixExp
 
 -- | Add any configured options for a package.
-addConfiguredOptions :: MonadIO io => Line -> io ()
-addConfiguredOptions pkgName =
-  lookupCabalOpts >>= mapM_ (addLine pkgName . configPath)
+addConfiguredOptions :: MonadIO io => [CabalOpt] -> Line -> io ()
+addConfiguredOptions cabalOpts pkgName =
+  mapM_ (addLine pkgName . configPath) cabalOpts
 
 -- | Remove the override configuration for a package from the current project.
 removePackage :: Text -> IO ()
@@ -319,7 +327,7 @@ removePackage package = do
       rmFromFile = removeLine package
   rmWhenPresent nixExpr
   rmWhenPresent gitJson
-  mapM_ (rmFromFile . configPath) knownCabalOpts
+  mapM_ (rmFromFile . configPath) [minBound .. maxBound]
 
 -- | List the overrides configured in the current project.
 listOverrides :: IO ()
@@ -520,48 +528,22 @@ allOverridezPat = Foldl.fold (Fold (<|>) empty id)
     optionsPath = ((<>) "nix/options/") . Text.pack . show
     notSlashes = selfless (plus (noneOf "/"))
 
--- | Determine what cabal option overrides should be set from the environment
--- variable HOZ_OPTS.
-lookupCabalOpts :: MonadIO io => io ([CabalOpt])
-lookupCabalOpts = lookupEnv cabalOptionsEnv >>= \case
-  Nothing -> return []
-  (Just raw) -> do
-    let matches = listToMaybe $ match (parseCabalOpt `sepBy` ":") raw
-        unlessMatches = flip (maybe $ pure []) matches
-    unlessMatches $ \opts -> do
-      mapM_  (printf ("ignored unrecognized option"%s%"")) $ lefts opts
-      return $ rights opts
-
 -- | The supported cabal option overrides.
 data CabalOpt =
   DoJailbreak
   | DontCheck
   | DontHaddock
-  deriving (Eq, Read, Show)
-
--- | Parse a cabal option from a string.
-parseCabalOpt :: Pattern (Either Text CabalOpt)
-parseCabalOpt
-  = (Turtle.text "doJailbreak" *> (return $ Right DoJailbreak))
-    <|> (Turtle.text "dontCheck" *> (return $ Right DontCheck))
-    <|> (Turtle.text "dontHaddock" *> (return $ Right DontHaddock))
-    <|> (do incorrect <- plus anyChar; return $ Left incorrect)
+  deriving (Eq, Read, Show, Enum, Bounded)
 
 -- | The supported cabal option overrides.
 knownCabalOpts :: [CabalOpt]
-knownCabalOpts = [DoJailbreak, DontCheck, DontHaddock]
+knownCabalOpts = [minBound .. maxBound]
 
 -- | Determine the path of the configuration file for a 'CabalOpt'.
 configPath :: CabalOpt -> FilePath
 configPath = fromText . ((<>) "nix/options/") . firstLower . Text.pack . show
   where
     firstLower = uncurry (<>) . first Text.toLower . Text.splitAt 1
-
-
--- | The paths of all files used to specify which packages use the
--- supported cabal option overrides.
-knownCabalOptPaths :: [FilePath]
-knownCabalOptPaths = map configPath knownCabalOpts
 
 -- | Remove a line from a file if it is present.
 removeLine :: Text -> FilePath -> IO ()
@@ -597,9 +579,6 @@ lookupEnv name = env >>= (return . lookup name)
 
 allHashesEnv :: Text
 allHashesEnv = "HOZ_ALL_CABAL_HASHES"
-
-cabalOptionsEnv :: Text
-cabalOptionsEnv = "HOZ_OPTS"
 
 -- | The path of the haskell-overridez nix-expr library loader.
 loaderPath :: FilePath

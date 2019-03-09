@@ -12,12 +12,10 @@ setup_test() {
     mkdir -p $dst_dir
 
     # Set up the configuration
-    HOZ_OPTS=dontCheck
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/pcapriotti/optparse-applicative
-    HOZ_OPTS=doJailbreak
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
-    $HOZ_TEST_CMD -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
+    $HOZ_TEST_CMD --flag-override DontCheck -o $dst_dir https://github.com/pcapriotti/optparse-applicative
+    $HOZ_TEST_CMD --flag-override DoJailbreak -o $dst_dir https://github.com/Gabriel439/Haskell-Turtle-Library
+    $HOZ_TEST_CMD --flag-override DoJailbreak -o $dst_dir https://github.com/Gabriel439/Haskell-Foldl-Library
+    $HOZ_TEST_CMD --flag-override DoJailbreak -o $dst_dir https://github.com/Gabriel439/Haskell-Managed-Library
 
     (cat <<EOF
 let
