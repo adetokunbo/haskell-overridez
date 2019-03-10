@@ -12,7 +12,7 @@ test() {
     local skipped_descs=()
     local this_dir=$(dirname "${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}")
     pushd $this_dir
-    nix-build --show-trace release.nix
+    nix-build --show-trace build.nix
     export HOZ_TEST_CMD=$(pwd)/result/bin/haskell-overridez
     popd
 

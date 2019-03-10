@@ -1,1 +1,1 @@
-(import ./release.nix).haskell-overridez.env
+(import ./build.nix {}).env.haskell.withEnvTools (pkgs: [ ])
