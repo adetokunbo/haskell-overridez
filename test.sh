@@ -1,6 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
+# setting up a test
+# have base copy of every file in a template directory
+# create a temp folder to contain the generated test directory
+# cp or replace the test Main.hs in the test directory
+#   check for an override by replacing 'template' with the test's name and
+#   seeing if there is a file there
+#   if there is no override copy it, otherwise  cp the file in the template directory
+# cp the LICENSE in the test directory
+# cp or replace the cabal project file
+# cp or replace the default.nix
+# interpret the setup_test (this should run from haskell)
+# checking the result should be from haskell
+
+# test setup is haskell invoking the binary
+# test code is in haskell, so no shell test
+# test requires a build-depends on the exe?
+
 test() {
     [[ -n ${HOZ_TEST_DEBUG:-''} ]] && set -x
     HOZ_TMP_DIR=$(mktemp -d)

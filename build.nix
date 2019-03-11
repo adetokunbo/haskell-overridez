@@ -28,4 +28,5 @@ in
 pkgsMake pkgsMakeArgs ({ call, lib, ... }: rec {
   haskell-overridez-exe = call.haskell.cabal2nix.app ./.;
   haskell-overridez = call.package ./nix/wrapper;
+  haskell-overridez-tests = call.haskell.cabal2nix.lib ./haskell-overridez-tests;
 })
