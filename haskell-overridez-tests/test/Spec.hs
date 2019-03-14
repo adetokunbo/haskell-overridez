@@ -3,6 +3,7 @@
 import           Test.Hspec
 import           Turtle
 
+import           System.Exit       (ExitCode)
 import           Test.Derivation   (Dependency, asCabalUri, hasDeps, mkDep,
                                     mkNameOnly)
 import           Test.MkProjectDir (checkDerivation)
@@ -11,6 +12,17 @@ import           Test.MkProjectDir (checkDerivation)
 main :: IO ()
 main = hspec $ do
   describe "haskell-overridez" $ do
+    context "when the haskell-overridez functions are not used " $ do
+      it "should fail to create an overlay" $ do
+        let
+          setup = do
+            hoz ["--flag-override", "DontCheck", asCabalUri optParseDep]
+            hoz ["--flag-override", "DoJailbreak", asCabalUri foldlDep]
+            hoz ["--flag-override", "DoJailbreak", asCabalUri turtleDep]
+          checkDrv = hasDeps [foldlDep, turtleDep]
+          theTest = with (checkDerivation checkDrv "nanabanme-no-purojekuto" setup) pure
+        theTest `shouldThrow` anyExitcode
+
     context "using nix-exprs generated via cabal2nix" $ do
       it "should create an overlay from https urls" $ do
         let
@@ -62,3 +74,7 @@ turtleDep, foldlDep, optParseDep :: Dependency
 turtleDep = mkDep "turtle" "1.5.12"
 foldlDep = mkDep "foldl" "1.4.5"
 optParseDep = mkDep "optparse-applicative" "0.14.2.0"
+
+
+anyExitcode :: Selector ExitCode
+anyExitcode = const True

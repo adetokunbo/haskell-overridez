@@ -1,12 +1,12 @@
 let
-  overridez = import ./nix/haskell-overridez.nix;
+  overridez = import ./lib.nix {};
   overlays =
     let dropTestPkgs = haskellPackagesNew: haskellPackagesOld: {
             foldl = null;
             managed = null;
             optparse-applicative = null;
             turtle = null;
-            nanabanme-no-purojekuto = haskellPackagesNew.callPackage ./nix/nanabanme-no-purojekuto.nix {};
+            nanabanme-no-purojekuto = haskellPackagesNew.callPackage ./nanabanme-no-purojekuto.nix {};
           };
     in [
       (newPkgs: oldPkgs: = {
