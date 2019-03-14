@@ -14,22 +14,37 @@ main = hspec $ do
     context "using nix-exprs generated via cabal2nix" $ do
       it "should create an overlay from https urls" $ do
         let
-          doSetup = do
+          setup = do
             hoz ["--flag-override", "DontCheck", optParseUri]
             hoz ["--flag-override", "DoJailbreak", turtleUri]
             hoz ["--flag-override", "DoJailbreak", foldUri]
           checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
-          theTest = with (checkDerivation checkDrv "gobanme-no-purojekuto" doSetup) pure
+          theTest = with (checkDerivation checkDrv "gobanme-no-purojekuto" setup) pure
         theTest `shouldReturn` True
 
       it "should create an overlay from cabal:// urls" $ do
         let
-          doSetup = do
+          setup = do
             hoz ["--flag-override", "DontCheck", asCabalUri optParseDep]
             hoz ["--flag-override", "DoJailbreak", asCabalUri foldlDep]
             hoz ["--flag-override", "DoJailbreak", asCabalUri turtleDep]
           checkDrv = hasDeps [foldlDep, turtleDep]
-          theTest = with (checkDerivation checkDrv "yonbanme-no-purojekuto" doSetup) pure
+          theTest = with (checkDerivation checkDrv "yonbanme-no-purojekuto" setup) pure
+        theTest `shouldReturn` True
+
+    context "using git json generated via nix-prefetch-git" $ do
+      it "should create an overlay from github repo names" $ do
+        let
+          -- can't use -g with optparse-applicative or foldl, this makes
+          -- cabal2nix infinitely recurse when converting json to nix-expr
+          setup = do
+            hoz ["--flag-override", "DontCheck", optParseUri]
+            hoz [ "--flag-override", "DoJailbreak", "-g"
+                , "Gabriel439/Haskell-Turtle-Library"
+                ]
+            hoz ["--flag-override", "DoJailbreak", foldUri]
+          checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
+          theTest = with (checkDerivation checkDrv "rokubanme-no-purojekuto" setup) pure
         theTest `shouldReturn` True
 
 
