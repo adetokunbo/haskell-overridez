@@ -22,13 +22,18 @@ cabal-version:      2.0
 library
   hs-source-dirs:     src
   build-tool-depends: haskell-overridez:haskell-overridez
-  exposed-modules:    Test.MkProjectDir
+  exposed-modules:    Test.Derivation
+                      Test.MkProjectDir
   other-modules:      Paths_haskell_overridez_tests
   build-depends:      base               >= 4.2 && < 5
+                    , attoparsec
+                    , containers
                     , foldl
                     , hspec
                     , managed
+                    , nix-derivation
                     , nix-paths
+                    , system-filepath
                     , text
                     , turtle
   default-language:   Haskell2010
@@ -42,10 +47,9 @@ test-suite integration-tests
   other-modules:      Paths_haskell_overridez_tests
   build-depends:      base               >= 4.2 && < 5
                     , foldl
-                    , haskell-overridez-tests
-                    , hspec
-                    , managed
                     , nix-paths
+                    , hspec
+                    , haskell-overridez-tests
                     , text
                     , turtle
   default-language:   Haskell2010

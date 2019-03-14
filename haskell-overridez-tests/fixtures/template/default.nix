@@ -1,5 +1,5 @@
 let
-  overridez = import ./lib.nix;
+  overridez = import ./lib.nix {};
   overlays =
     let dropTestPkgs = haskellPackagesNew: haskellPackagesOld: {
             foldl = null;
