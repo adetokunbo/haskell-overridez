@@ -4,12 +4,13 @@
 {-# OPTIONS_HADDOCK prune not-home #-}
 module Test.Derivation
   ( -- * data types
-    Dependency(..)
+    Dependency
 
     -- * functions
   , asCabalUri
   , hasDeps
   , mkNameOnly
+  , mkDep
 
     -- * re-exports
   , module Nix.Derivation
@@ -39,6 +40,11 @@ mkNameOnly :: Text -> Dependency
 mkNameOnly n = Dependency n Nothing
 
 
+-- | construct a dependency with name and version
+mkDep :: Text -> Text -> Dependency
+mkDep n v = Dependency n $ Just v
+
+
 -- | Given a 'Derivation' determine if all of the given dependencies are present.
 hasDeps :: [Dependency] -> Derivation -> Bool
 hasDeps ds drv = all hasMatch ds
@@ -57,13 +63,13 @@ asInputDeps = map (drvToDep . fst) . Map.toAscList . inputDrvs
 
 
 drvToDep :: FilePath -> Dependency
-drvToDep = mkDep . devName
+drvToDep = toDep . devName
   where
     -- N.B. this assumes that the path name is:
     -- /nix/store/${32_CHARACTER_HASH}-${NAME}.drv
     devName = Text.dropEnd 4 . Text.drop 44 . pathToText
     pathToText = either id id . toText
-    mkDep t = case (Text.breakOnEnd "-" t) of
+    toDep t = case (Text.breakOnEnd "-" t) of
       ("", name)      -> Dependency name Nothing
       (name, version) -> Dependency (Text.dropWhileEnd (== '-') name) $ Just version
 
