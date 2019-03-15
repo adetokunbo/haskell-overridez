@@ -57,6 +57,17 @@ main = hspec $ do
           theTest = with (checkDerivation checkDrv "rokubanme-no-purojekuto" setup) pure
         theTest `shouldReturn` True
 
+    context "using fetched config" $ do
+      it "should create an overlay from config in a repo's main folder" $ do
+        let
+          name = "ichibanme-no-yagai-purojekuto"
+          nixDir = "./nix/github.com/adetokunbo/example-fetched-haskell-overridez"
+          setup = hoz ["fetch", exGithubUri]
+          checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
+          copyRule = cpWithAltDir name nixDir
+          theTest = with (checkDerivation' checkDrv copyRule setup) pure
+        theTest `shouldReturn` True
+
     context "saving to an alternate output directory" $ do
       it "should create an overlay from github https:// urls" $ do
         let
@@ -92,11 +103,12 @@ hoz' :: MonadIO io => Turtle.FilePath -> [Text] -> io ()
 hoz' altDir args = hoz $ args <> ["-o", format fp altDir]
 
 
-turtleUri, foldUri, optParseUri, leExtraUri :: Text
+turtleUri, foldUri, optParseUri, leExtraUri, exGithubUri :: Text
 turtleUri   = "https://github.com/Gabriel439/Haskell-Turtle-Library"
 foldUri     = "https://github.com/Gabriel439/Haskell-Foldl-Library"
 optParseUri = "https://github.com/pcapriotti/optparse-applicative"
 leExtraUri  = "https://github.com/jship/logging-effect-extra"
+exGithubUri = "https://github.com/adetokunbo/example-fetched-haskell-overridez"
 
 
 turtleDep, foldlDep, optParseDep :: Dependency
