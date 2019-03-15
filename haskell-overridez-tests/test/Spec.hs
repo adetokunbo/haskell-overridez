@@ -33,17 +33,26 @@ main = hspec $ do
           theTest = with (checkDerivation checkDrv "yonbanme-no-purojekuto" setup) pure
         theTest `shouldReturn` True
 
+      it "should create an overlay from a github subdir repo" $ do
+        let
+          name = "kyuubanme-no-purojekuto"
+          subpath = "logging-effect-extra-handler"
+          setup = hoz [leExtraUri, "--", "--subpath", subpath]
+          checkDrv = hasDeps $ map mkNameOnly [subpath]
+          theTest = with (checkDerivation checkDrv name setup) pure
+        theTest `shouldReturn` True
+
     context "using git json generated via nix-prefetch-git" $ do
       it "should create an overlay from github repo names" $ do
         let
           -- can't use -g with optparse-applicative or foldl, this makes
           -- cabal2nix infinitely recurse when converting json to nix-expr
           setup = do
-            hoz ["--flag-override", "DontCheck", optParseUri]
+            hoz [ "--flag-override", "DontCheck", optParseUri]
             hoz [ "--flag-override", "DoJailbreak", "-g"
                 , "Gabriel439/Haskell-Turtle-Library"
                 ]
-            hoz ["--flag-override", "DoJailbreak", foldUri]
+            hoz [ "--flag-override", "DoJailbreak", foldUri]
           checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
           theTest = with (checkDerivation checkDrv "rokubanme-no-purojekuto" setup) pure
         theTest `shouldReturn` True
@@ -75,18 +84,19 @@ main = hspec $ do
         theTest `shouldThrow` anyExitcode
 
 
-
 hoz :: MonadIO io => [Text] -> io ()
 hoz args = procs "haskell-overridez" args empty
+
 
 hoz' :: MonadIO io => Turtle.FilePath -> [Text] -> io ()
 hoz' altDir args = hoz $ args <> ["-o", format fp altDir]
 
 
-turtleUri, foldUri, optParseUri :: Text
+turtleUri, foldUri, optParseUri, leExtraUri :: Text
 turtleUri   = "https://github.com/Gabriel439/Haskell-Turtle-Library"
 foldUri     = "https://github.com/Gabriel439/Haskell-Foldl-Library"
 optParseUri = "https://github.com/pcapriotti/optparse-applicative"
+leExtraUri  = "https://github.com/jship/logging-effect-extra"
 
 
 turtleDep, foldlDep, optParseDep :: Dependency

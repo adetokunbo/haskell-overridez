@@ -1,9 +1,10 @@
 let
-  overridez = import ./nix/haskell-overridez.nix;
+  overridez = import ./lib.nix {};
+  theOverrides = overridez.allIn ./nix;
   overlays =
     let dropTestPkgs = haskellPackagesNew: haskellPackagesOld: {
-            beam-core = null;
-            kyuubanme-no-purojekuto = haskellPackagesNew.callPackage ./nix/kyuubanme-no-purojekuto.nix {};
+            logging-effect-extra-handler = null;
+            kyuubanme-no-purojekuto = haskellPackagesNew.callPackage ./kyuubanme-no-purojekuto.nix {};
           };
     in [
       (newPkgs: oldPkgs:
@@ -12,7 +13,7 @@ let
            composeExtensionsList = fold composeExtensions (_: _: {});
          in {
            haskellPackages = oldPkgs.haskellPackages.override {
-             overrides = composeExtensionsList [dropTestPkgs (overridez.allIn ./nix)];
+             overrides = composeExtensionsList [dropTestPkgs theOverrides];
          };
       })
     ];

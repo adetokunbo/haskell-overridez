@@ -6,6 +6,6 @@ cabal-version: >= 1.18
 build-type: Simple
 
 executable kyuubanme-no-purojekuto
-    build-depends: base < 5, logging-effect, prettyprinter, text
+    build-depends: base < 5, logging-effect, prettyprinter, text, logging-effect-extra-handler
     main-is: Main.hs
     default-language: Haskell2010
