@@ -1,5 +1,6 @@
 let
   overridez = import ./lib.nix {};
+  theOverrides = overridez.allIn ./nix;
   overlays =
     let dropTestPkgs = haskellPackagesNew: haskellPackagesOld: {
             foldl = null;
@@ -15,7 +16,7 @@ let
            composeExtensionsList = fold composeExtensions (_: _: {});
          in {
            haskellPackages = oldPkgs.haskellPackages.override {
-             overrides = composeExtensionsList [dropTestPkgs (overridez.allIn ./nix)];
+             overrides = composeExtensionsList [dropTestPkgs theOverrides];
          };
       })
     ];

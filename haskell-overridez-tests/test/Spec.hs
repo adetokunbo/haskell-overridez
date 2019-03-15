@@ -6,23 +6,12 @@ import           Turtle
 import           System.Exit       (ExitCode)
 import           Test.Derivation   (Dependency, asCabalUri, hasDeps, mkDep,
                                     mkNameOnly)
-import           Test.MkProjectDir (checkDerivation)
+import           Test.MkProjectDir (checkDerivation, cpWithAltDir, checkDerivation')
 
 
 main :: IO ()
 main = hspec $ do
   describe "haskell-overridez" $ do
-    context "when the haskell-overridez functions are not used " $ do
-      it "should fail to create an overlay" $ do
-        let
-          setup = do
-            hoz ["--flag-override", "DontCheck", asCabalUri optParseDep]
-            hoz ["--flag-override", "DoJailbreak", asCabalUri foldlDep]
-            hoz ["--flag-override", "DoJailbreak", asCabalUri turtleDep]
-          checkDrv = hasDeps [foldlDep, turtleDep]
-          theTest = with (checkDerivation checkDrv "nanabanme-no-purojekuto" setup) pure
-        theTest `shouldThrow` anyExitcode
-
     context "using nix-exprs generated via cabal2nix" $ do
       it "should create an overlay from https urls" $ do
         let
@@ -59,9 +48,39 @@ main = hspec $ do
           theTest = with (checkDerivation checkDrv "rokubanme-no-purojekuto" setup) pure
         theTest `shouldReturn` True
 
+    context "saving to an alternate output directory" $ do
+      it "should create an overlay from github https:// urls" $ do
+        let
+          name = "hachibanme-no-purojekuto"
+          setup altDir = do
+            hoz' altDir ["--flag-override", "DontCheck", optParseUri]
+            hoz' altDir ["--flag-override", "DoJailbreak", turtleUri]
+            hoz' altDir ["--flag-override", "DoJailbreak", foldUri]
+          checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
+          theTest = flip with pure $ do
+            altDir <- mktempdir "/tmp" $ name <> "-alt"
+            let copyRule = cpWithAltDir name $ altDir </> "nix"
+            checkDerivation' checkDrv copyRule $ setup altDir
+        theTest `shouldReturn` True
+
+    context "when the haskell-overridez functions are not used " $ do
+      it "should fail to create an overlay" $ do
+        let
+          setup = do
+            hoz ["--flag-override", "DontCheck", asCabalUri optParseDep]
+            hoz ["--flag-override", "DoJailbreak", asCabalUri foldlDep]
+            hoz ["--flag-override", "DoJailbreak", asCabalUri turtleDep]
+          checkDrv = hasDeps [foldlDep, turtleDep]
+          theTest = with (checkDerivation checkDrv "nanabanme-no-purojekuto" setup) pure
+        theTest `shouldThrow` anyExitcode
+
+
 
 hoz :: MonadIO io => [Text] -> io ()
 hoz args = procs "haskell-overridez" args empty
+
+hoz' :: MonadIO io => Turtle.FilePath -> [Text] -> io ()
+hoz' altDir args = hoz $ args <> ["-o", format fp altDir]
 
 
 turtleUri, foldUri, optParseUri :: Text
