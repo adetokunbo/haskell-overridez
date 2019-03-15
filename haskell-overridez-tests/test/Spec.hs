@@ -58,11 +58,22 @@ main = hspec $ do
         theTest `shouldReturn` True
 
     context "using fetched config" $ do
-      it "should create an overlay from config in a repo's main folder" $ do
+      it "should create an overlay from config in a repo main folder" $ do
         let
           name = "ichibanme-no-yagai-purojekuto"
           nixDir = "./nix/github.com/adetokunbo/example-fetched-haskell-overridez"
           setup = hoz ["fetch", exGithubUri]
+          checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
+          copyRule = cpWithAltDir name nixDir
+          theTest = with (checkDerivation' checkDrv copyRule setup) pure
+        theTest `shouldReturn` True
+
+      it "should create an overlay from config in a repo sub directory" $ do
+        let
+          name = "gobanme-no-yagai-purojekuto"
+          nixDir = "./nix/github.com/adetokunbo/example-fetched-haskell-overridez"
+                   </> "subdir-root" </> "a-subdir"
+          setup = hoz ["fetch", "--subpath", "subdir-root/a-subdir", exGithubUri]
           checkDrv = hasDeps $ map mkNameOnly ["turtle", "foldl"]
           copyRule = cpWithAltDir name nixDir
           theTest = with (checkDerivation' checkDrv copyRule setup) pure
