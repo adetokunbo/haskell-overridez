@@ -1,17 +1,9 @@
 { debug ? false, pkgs ? import <nixpkgs> {} }:
 let
-  overridez = import ./lib.nix { inherit debug pkgs; };
-  overlays = [
-   (newPkgs: oldPkgs: {
-     haskellPackages = oldPkgs.haskellPackages.override {
-       overrides = overridez.allIn ./nix;
-     };
-   })
-  ];
-  nixpkgs = import ./nix/18_09.nix;
-  pkgs = import nixpkgs { inherit overlays; };
+  lib = import ./lib.nix { inherit debug pkgs; };
+  build = import ./build.nix {};
 in
  {
-  inherit (pkgs.haskellPackages) haskell-overridez;
-  inherit (overridez) allIn combineAllIn nixExprIn gitJsonIn optionsIn;
+  inherit (build) haskell-overridez;
+  inherit (lib) allIn combineAllIn nixExprIn gitJsonIn optionsIn;
  }

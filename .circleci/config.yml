@@ -21,11 +21,11 @@ aliases: &build
 
     - restore_cache:
         keys:
-          - nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
+          - nix-root-v1-{{ arch }}-{{ checksum "build.nix" }}
 
     - restore_cache:
         keys:
-          - nix-dotnix-v1-{{ arch }}-{{ checksum "release.nix" }}
+          - nix-dotnix-v1-{{ arch }}-{{ checksum "build.nix" }}
 
     - run:
         name: install nix
@@ -40,18 +40,18 @@ aliases: &build
           nix-env -i nix-prefetch-git
 
     - run:
-        name: run the tests
-        command: ./test.sh
+        name: run the tests (temporarily - just build to reset the cache)
+        command: nix-build --show-trace build.nix
 
     # Save /nix and the nix user folders to the cache.
 
     - save_cache:
-        key: nix-root-v1-{{ arch }}-{{ checksum "release.nix" }}
+        key: nix-root-v1-{{ arch }}-{{ checksum "build.nix" }}
         paths:
           - /nix
 
     - save_cache:
-        key: nix-dotnix-v1-{{ arch }}-{{ checksum "release.nix" }}
+        key: nix-dotnix-v1-{{ arch }}-{{ checksum "build.nix" }}
         paths:
           - ~/.nix-profile
           - ~/.nix-defexpr
