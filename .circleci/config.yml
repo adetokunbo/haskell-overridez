@@ -40,8 +40,8 @@ aliases: &build
           nix-env -i nix-prefetch-git
 
     - run:
-        name: run the tests
-        command: ./test.sh
+        name: run the tests (temporarily - just build to reset the cache)
+        command: nix-build --show-trace build.nix
 
     # Save /nix and the nix user folders to the cache.
 
