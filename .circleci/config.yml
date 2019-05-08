@@ -31,7 +31,7 @@ aliases: &build
         name: install nix
         command: |
           [[ -d ~/.nix-defexpr ]] ||
-          curl https://nixos.org/nix/install | sh
+          curl https://nixos.org/releases/nix/nix-2.2.1/install | sh
           sudo chown -R circleci /nix
 
     - run:
