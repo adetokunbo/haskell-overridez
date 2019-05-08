@@ -32,6 +32,7 @@ aliases: &build
         command: |
           [[ -d ~/.nix-defexpr ]] ||
           curl https://nixos.org/nix/install | sh
+          sudo chown -R circleci /nix
 
     - run:
         name: install nix dependencies used in the test script itself
