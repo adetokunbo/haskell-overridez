@@ -9,7 +9,7 @@ let
             nanabanme-no-purojekuto = haskellPackagesNew.callPackage ./nanabanme-no-purojekuto.nix {};
           };
     in [
-      (newPkgs: oldPkgs: = {
+      (newPkgs: oldPkgs: {
            haskellPackages = oldPkgs.haskellPackages.override {
              overrides = dropTestPkgs;
          };
