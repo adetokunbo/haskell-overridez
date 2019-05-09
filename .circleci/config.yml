@@ -37,7 +37,7 @@ aliases: &build
         name: install nix dependencies used in the test script itself
         command: |
           nix-env -i cabal2nix
-          nix-env -i nix-prefetch-git
+          nix-env -i nix-prefetch-scripts
 
     - run:
         name: run the tests
