@@ -94,12 +94,16 @@ mkProjectDir' htc@HowToCopy { htcName = name } = do
       nix = fromText $ name <> ".nix"
       projectDir = fromText name
   dir <- mktempdir "/tmp" name
+  let nixDir = dir </> "nix"
+  mkdir nixDir
   liftIO $ do
     void $ cpTemplateFile dir "LICENSE"
     mvPnameTemplate name cabal dir "project.cabal" >>= orUseAlt (projectDir </> cabal)
     mvPnameTemplate name nix dir "project.nix" >>= orUseAlt (projectDir </> nix)
     cpPnameTemplate htc dir "default.nix" >>= orUseAlt (projectDir </> "default.nix")
     void $ cpProjectFile dir "lib.nix"
+    void $ cpTemplateFile nixDir "nix/fetchNixPkgs.nix"
+    void $ cpTemplateFile nixDir "nix/18.09.nix"
     pure dir
 
 

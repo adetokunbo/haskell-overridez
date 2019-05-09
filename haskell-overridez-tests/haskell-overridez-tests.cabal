@@ -14,6 +14,7 @@ data-files:         fixtures/template/*.hs
                     fixtures/template/LICENSE
                     fixtures/template/*.nix
                     fixtures/template/*.cabal
+                    fixtures/template/nix/*.nix
                     lib.nix
 extra-source-files: README.md
                     ChangeLog.md

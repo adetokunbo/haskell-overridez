@@ -20,7 +20,9 @@ let
          };
       })
     ];
-  pkgs = import <nixpkgs> { inherit overlays; };
+  nixVersion = import (./. + "/nix/18.09.nix");
+  nixpkgs = import ./nix/fetchNixPkgs.nix nixVersion;
+  pkgs = import nixpkgs { inherit overlays; };
 in
   { purojekuto-no-namae = pkgs.haskellPackages.purojekuto-no-namae;
   }
