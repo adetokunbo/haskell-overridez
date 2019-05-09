@@ -13,7 +13,7 @@ aliases: &build
 
     - run:
         name: create a fake /nix, enable single-user install of nix as user circleci
-        command: sudo mkdir -m 0777 /nix && chown -R circleci /nix
+        command: sudo mkdir -m 0777 /nix && sudo chown -R circleci /nix
 
     # Restore the nix installation to its state after the previous test run.
     # This should prevent unnecessary rebuilds of dependencies without impacting
