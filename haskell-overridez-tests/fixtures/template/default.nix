@@ -1,0 +1,28 @@
+let
+  overridez = import ./lib.nix {};
+  theOverrides = overridez.allIn ./nix;
+  overlays =
+    let dropTestPkgs = haskellPackagesNew: haskellPackagesOld: {
+            foldl = null;
+            managed = null;
+            optparse-applicative = null;
+            turtle = null;
+            purojekuto-no-namae = haskellPackagesNew.callPackage ./purojekuto-no-namae.nix {};
+          };
+    in [
+      (newPkgs: oldPkgs:
+         let
+           inherit (oldPkgs.lib) composeExtensions fold;
+           composeExtensionsList = fold composeExtensions (_: _: {});
+         in {
+           haskellPackages = oldPkgs.haskellPackages.override {
+             overrides = composeExtensionsList [dropTestPkgs theOverrides];
+         };
+      })
+    ];
+  nixVersion = import (./. + "/nix/18.09.nix");
+  nixpkgs = import ./nix/fetchNixPkgs.nix nixVersion;
+  pkgs = import nixpkgs { inherit overlays; };
+in
+  { purojekuto-no-namae = pkgs.haskellPackages.purojekuto-no-namae;
+  }

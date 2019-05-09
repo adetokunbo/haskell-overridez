@@ -99,4 +99,5 @@ _add_current_project_to_nix() {
     sed -i'.bak' -e 's|src = ./.|src = ../.|' $nix_file
 }
 
-test "$@"
+echo "DEPRECATED: instead of test.sh, use 'nix-shell --run 'cabal new-test haskell-overridez-tests'"
+# test "$@"
