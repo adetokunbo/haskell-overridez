@@ -13,7 +13,7 @@ aliases: &build
 
     - run:
         name: create a fake /nix
-        command: sudo mkdir -m 0755 /nix && sudo chown circleci /nix
+        command: sudo mkdir -m 0755 /nix
 
     # Restore the nix installation to its state after the previous test run.
     # This should prevent unnecessary rebuilds of dependencies without impacting
@@ -32,7 +32,6 @@ aliases: &build
         command: |
           [[ -d ~/.nix-defexpr ]] ||
           curl https://nixos.org/releases/nix/nix-2.2.1/install | sh
-          sudo chown -R circleci /nix
 
     - run:
         name: install nix dependencies used in the test script itself
