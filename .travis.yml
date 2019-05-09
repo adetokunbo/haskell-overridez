@@ -1,0 +1,3 @@
+language: nix
+nix: 2.2.1
+script: nix-shell --run 'cabal new-test haskell-overridez-tests'
